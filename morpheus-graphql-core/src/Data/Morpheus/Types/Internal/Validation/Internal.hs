@@ -21,7 +21,8 @@ module Data.Morpheus.Types.Internal.Validation.Internal
 where
 
 import Data.Morpheus.Internal.Utils
-  ( Failure (..),
+  ( Failure,
+    failure,
     fromElems,
   )
 import Data.Morpheus.Types.Internal.AST

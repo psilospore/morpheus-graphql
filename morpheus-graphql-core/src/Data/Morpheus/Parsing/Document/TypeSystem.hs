@@ -18,9 +18,12 @@ import Data.Foldable (foldr')
 import Data.Mergeable (NameCollision (..))
 import Data.Morpheus.Ext.Result
   ( Eventless,
-    failure,
+    Eventless2,
   )
-import Data.Morpheus.Internal.Utils (fromElems)
+import Data.Morpheus.Internal.Utils
+  ( failure,
+    fromElems,
+  )
 import Data.Morpheus.Parsing.Internal.Internal
   ( Parser,
     processParser,
@@ -74,6 +77,7 @@ import Data.Morpheus.Types.Internal.AST
     Value,
     buildSchema,
     mkUnionMember,
+    toGQLError,
     type (<=!),
   )
 import Relude hiding (ByteString)
@@ -342,8 +346,7 @@ withSchemaDefinition ::
     [TypeDefinition ANY s],
     [DirectiveDefinition CONST]
   ) ->
-  Eventless
-    (Maybe SchemaDefinition, [TypeDefinition ANY s], DirectivesDefinition CONST)
+  Eventless2 (Maybe SchemaDefinition, [TypeDefinition ANY s], DirectivesDefinition CONST)
 withSchemaDefinition ([], t, dirs) = (Nothing,t,) <$> fromElems dirs
 withSchemaDefinition ([x], t, dirs) = (Just x,t,) <$> fromElems dirs
 withSchemaDefinition (_ : xs, _, _) = failure (fmap nameCollision xs)
@@ -363,7 +366,7 @@ typeSystemDefinition ::
     )
 typeSystemDefinition =
   processParser parseRawTypeDefinitions
-    >=> withSchemaDefinition . typePartition
+    >=> first toGQLError . withSchemaDefinition . typePartition
 
 parseTypeDefinitions :: ByteString -> Eventless [TypeDefinition ANY CONST]
 parseTypeDefinitions =
@@ -371,4 +374,4 @@ parseTypeDefinitions =
     . processParser parseRawTypeDefinitions
 
 parseSchema :: ByteString -> Eventless (Schema CONST)
-parseSchema = typeSystemDefinition >=> buildSchema
+parseSchema = typeSystemDefinition >=> first toGQLError . buildSchema

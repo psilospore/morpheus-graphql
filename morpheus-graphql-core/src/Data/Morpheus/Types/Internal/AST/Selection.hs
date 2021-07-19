@@ -42,10 +42,11 @@ import Data.Morpheus.Error.Operation
   )
 import Data.Morpheus.Internal.Utils
   ( (<:>),
-    Failure (..),
+    Failure,
     HistoryT,
     KeyOf (..),
     addPath,
+    failure,
   )
 import Data.Morpheus.Rendering.RenderGQL
   ( RenderGQL (..),

@@ -23,7 +23,7 @@ import Data.Morpheus.Error.Fragment
   )
 import Data.Morpheus.Internal.Utils
   ( Empty (empty),
-    Failure (..),
+    failure,
   )
 import Data.Morpheus.Types.Internal.AST
   ( Directives,

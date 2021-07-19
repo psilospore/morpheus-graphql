@@ -15,6 +15,7 @@ module Data.Mergeable.Internal.Merge
   )
 where
 
+import Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Lazy as HM
 import Data.Mergeable.Internal.NameCollision (NameCollision (nameCollision))
 import Data.Mergeable.Internal.Resolution
@@ -22,7 +23,6 @@ import Data.Mergeable.Internal.Resolution
     resolveWith,
     runResolutionT,
   )
-import Data.Morpheus.Ext.Failure (Failure (failure))
 import Data.Morpheus.Types.Internal.AST.Error
   ( ValidationErrors,
   )
@@ -35,14 +35,14 @@ instance
   ( NameCollision a,
     Eq k,
     Hashable k,
-    Failure ValidationErrors m
+    MonadError ValidationErrors m
   ) =>
   Merge m (HashMap k a)
   where
   merge x y = mergeNoDuplicates HM.fromList (HM.toList x <> HM.toList y)
 
 mergeConcat ::
-  ( Failure ValidationErrors m,
+  ( MonadError ValidationErrors m,
     Merge m a,
     Monad m
   ) =>
@@ -54,10 +54,10 @@ mergeConcat (value :| (x : xs)) = do
   mergeConcat (a :| xs)
 
 -- Merge Object with of Failure as an Option
-failOnDuplicates :: (Failure ValidationErrors m, NameCollision a) => NonEmpty a -> m a
+failOnDuplicates :: (MonadError ValidationErrors m, NameCollision a) => NonEmpty a -> m a
 failOnDuplicates (x :| xs)
   | null xs = pure x
-  | otherwise = failure $ fmap nameCollision (x : xs)
+  | otherwise = throwError $ fmap nameCollision (x : xs)
 
 mergeOnDuplicates ::
   ( Monad m,
@@ -71,7 +71,7 @@ mergeOnDuplicates oldValue newValue
   | oldValue == newValue = pure oldValue
   | otherwise = merge oldValue newValue
 
-mergeNoDuplicates :: (Monad m, Eq k, Hashable k, Failure ValidationErrors m, NameCollision a) => ([(k, a)] -> b) -> [(k, a)] -> m b
+mergeNoDuplicates :: (Monad m, Eq k, Hashable k, MonadError ValidationErrors m, NameCollision a) => ([(k, a)] -> b) -> [(k, a)] -> m b
 mergeNoDuplicates f xs = runResolutionT (fromListT xs) f failOnDuplicates
 
 recursiveMerge :: (Monad m, Hashable k, Eq k, Eq a, Merge m a) => ([(k, a)] -> b) -> [(k, a)] -> m b

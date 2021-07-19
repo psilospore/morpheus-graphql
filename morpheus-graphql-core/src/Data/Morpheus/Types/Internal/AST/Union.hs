@@ -23,8 +23,8 @@ where
 import Data.Mergeable (NameCollision (..), OrdMap)
 import Data.Morpheus.Internal.Utils
   ( Empty (empty),
-    Failure (..),
     KeyOf (..),
+    failure,
     selectBy,
   )
 import Data.Morpheus.Rendering.RenderGQL

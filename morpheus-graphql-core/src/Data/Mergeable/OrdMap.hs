@@ -17,6 +17,7 @@ module Data.Mergeable.OrdMap
   )
 where
 
+import Control.Monad.Except (MonadError)
 import qualified Data.HashMap.Lazy as HM
 import Data.Mergeable.Internal.Merge (Merge (..))
 import Data.Mergeable.Internal.NameCollision (NameCollision (..))
@@ -29,9 +30,6 @@ import Data.Mergeable.IsMap
     IsMap (..),
   )
 import Data.Morpheus.Ext.Empty (Empty (..))
-import Data.Morpheus.Ext.Failure
-  ( Failure,
-  )
 import Data.Morpheus.Types.Internal.AST.Error (ValidationErrors)
 import Language.Haskell.TH.Syntax (Lift (..))
 import Relude
@@ -86,13 +84,13 @@ instance (Eq k, Hashable k) => IsMap k (OrdMap k) where
   singleton k x = OrdMap $ HM.singleton k (Indexed 0 k x)
   lookup key OrdMap {mapEntries} = indexedValue <$> lookup key mapEntries
 
-instance (NameCollision a, Eq k, Hashable k, Monad m, Failure ValidationErrors m) => Merge m (OrdMap k a) where
+instance (NameCollision a, Eq k, Hashable k, Monad m, MonadError ValidationErrors m) => Merge m (OrdMap k a) where
   merge (OrdMap x) (OrdMap y) = OrdMap <$> merge x y
 
 instance
   ( NameCollision a,
     Monad m,
-    Failure ValidationErrors m,
+    MonadError ValidationErrors m,
     Hashable k,
     Eq k
   ) =>

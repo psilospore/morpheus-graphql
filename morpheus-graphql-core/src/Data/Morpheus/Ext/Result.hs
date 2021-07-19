@@ -4,12 +4,12 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module Data.Morpheus.Ext.Result
   ( Eventless,
     Result (..),
-    Failure (..),
     ResultT (..),
     unpackEvents,
     mapEvent,
@@ -18,27 +18,27 @@ module Data.Morpheus.Ext.Result
     resultOr,
     sortErrors,
     toEither,
+    Eventless2,
   )
 where
 
-import Data.Morpheus.Internal.Utils
-  ( Failure (..),
-  )
+import Control.Monad.Except (MonadError (..))
 import Data.Morpheus.Types.Internal.AST.Error
   ( GQLError (..),
     GQLErrors,
     ValidationError,
-    toGQLError,
   )
 import Relude
 
-type Eventless = Result ()
+type Eventless = Result () GQLError
+
+type Eventless2 = Result () ValidationError
 
 -- EVENTS
 class PushEvents e m where
   pushEvents :: [e] -> m ()
 
-unpackEvents :: Result event a -> [event]
+unpackEvents :: Result event er a -> [event]
 unpackEvents Success {events} = events
 unpackEvents _ = []
 
@@ -46,45 +46,47 @@ unpackEvents _ = []
 -- Result
 --
 --
-data Result events a
-  = Success {result :: a, warnings :: GQLErrors, events :: [events]}
-  | Failure {errors :: GQLErrors}
+data Result events err a
+  = Success {result :: a, warnings :: [err], events :: [events]}
+  | Failure {errors :: [err]}
   deriving (Functor)
 
-instance Applicative (Result e) where
+instance Applicative (Result e er) where
   pure x = Success x [] []
   Success f w1 e1 <*> Success x w2 e2 = Success (f x) (w1 <> w2) (e1 <> e2)
   Failure e1 <*> Failure e2 = Failure (e1 <> e2)
   Failure e <*> Success _ w _ = Failure (e <> w)
   Success _ w _ <*> Failure e = Failure (e <> w)
 
-instance Monad (Result e) where
+instance Monad (Result e er) where
   return = pure
   Success v w1 e1 >>= fm = case fm v of
     (Success x w2 e2) -> Success x (w1 <> w2) (e1 <> e2)
     (Failure e) -> Failure (e <> w1)
   Failure e >>= _ = Failure e
 
-instance Failure [GQLError] (Result ev) where
-  failure = Failure
+instance Bifunctor (Result ev) where
+  bimap f g Success {..} = Success {warnings = f <$> warnings, result = g result, ..}
+  bimap f _ Failure {..} = Failure (f <$> errors)
 
-instance PushEvents events (Result events) where
+instance MonadError [er] (Result ev er) where
+  throwError = Failure
+  catchError = undefined
+
+instance PushEvents events (Result events er) where
   pushEvents events = Success {result = (), warnings = [], events}
 
-instance Failure [ValidationError] (Result ev) where
-  failure = failure . fmap toGQLError
-
-resultOr :: (GQLErrors -> a') -> (a -> a') -> Result e a -> a'
+resultOr :: ([err] -> a') -> (a -> a') -> Result e err a -> a'
 resultOr _ f (Success x _ _) = f x
 resultOr f _ (Failure e) = f e
 
-sortErrors :: Result e a -> Result e a
+sortErrors :: Result e GQLError a -> Result e GQLError a
 sortErrors (Failure errors) = Failure (sortOn locations errors)
 sortErrors x = x
 
 -- ResultT
 newtype ResultT event (m :: * -> *) a = ResultT
-  { runResultT :: m (Result event a)
+  { runResultT :: m (Result event GQLError a)
   }
   deriving (Functor)
 
@@ -107,8 +109,9 @@ instance Monad m => Monad (ResultT event m) where
 instance MonadTrans (ResultT event) where
   lift = ResultT . fmap pure
 
-instance Monad m => Failure GQLErrors (ResultT event m) where
-  failure = ResultT . pure . failure
+instance Monad m => MonadError GQLErrors (ResultT event m) where
+  throwError = ResultT . pure . throwError
+  catchError = undefined
 
 instance Applicative m => PushEvents event (ResultT event m) where
   pushEvents = ResultT . pure . pushEvents
@@ -133,5 +136,5 @@ mapEvent func (ResultT ma) = ResultT $ mapEv <$> ma
       Success {result, warnings, events = fmap func events}
     mapEv (Failure err) = Failure err
 
-toEither :: Result e b -> Either GQLErrors b
+toEither :: Result e err b -> Either [err] b
 toEither = resultOr Left Right

@@ -56,6 +56,7 @@ module Data.Morpheus.Types.Internal.Validation.Validator
   )
 where
 
+import Control.Monad.Except (MonadError (throwError))
 import Data.Morpheus.Ext.Result
   ( Eventless,
   )
@@ -450,16 +451,16 @@ instance SetWith (OperationContext s1 s2) CurrentSelection where
         ..
       }
 
-instance Failure [ValidationError] (Validator s ctx) where
-  failure errors = do
+instance MonadError [ValidationError] (Validator s ctx) where
+  throwError errors = do
     ctx <- Validator ask
     failValidator (fromValidationError ctx <$> errors)
 
-instance Failure ValidationError (Validator s ctx) where
-  failure err = failure [err]
+-- instance MonadError ValidationError (Validator s ctx) where
+--   throwError err = failure [err]
 
 failValidator :: GQLErrors -> Validator s ctx a
-failValidator = Validator . lift . failure
+failValidator = Validator . lift . throwError
 
 fromValidationError :: ValidatorContext s ctx -> ValidationError -> GQLError
 fromValidationError
@@ -472,18 +473,18 @@ fromValidationError
         | otherwise = id
 
 -- can be only used for internal errors
-instance
-  (MonadContext (Validator s) s ctx) =>
-  Failure InternalError (Validator s ctx)
-  where
-  failure inputMessage = do
-    ctx <- Validator ask
-    let positions = maybeToList $ position (scope ctx)
-    failure $
-      ( coerce inputMessage
-          <> msgValidation (renderContext ctx)
-      )
-        `atPositions` positions
+-- instance
+--   (MonadContext (Validator s) s ctx) =>
+--   MonadError InternalError (Validator s ctx)
+--   where
+--   throwError inputMessage = do
+--     ctx <- Validator ask
+--     let positions = maybeToList $ position (scope ctx)
+--     throwError $
+--       ( coerce inputMessage
+--           <> msgValidation (renderContext ctx)
+--       )
+--         `atPositions` positions
 
 renderContext :: ValidatorContext s ctx -> Message
 renderContext

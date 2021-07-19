@@ -60,9 +60,9 @@ module Data.Morpheus.Types.Internal.Validation
 where
 
 import Data.Morpheus.Internal.Utils
-  ( Failure (..),
-    IsMap,
+  ( IsMap,
     KeyOf (..),
+    failure,
     member,
     selectBy,
     selectOr,
@@ -77,7 +77,6 @@ import Data.Morpheus.Types.Internal.AST
     Ref (..),
     TRUE,
     TypeName,
-    ValidationError,
     Value (..),
     constraintInputUnion,
     fromAny,
@@ -153,7 +152,7 @@ selectRequired selector container =
   do
     ValidatorContext {scope, validatorCTX} <- Validator ask
     selectBy
-      [missingRequired scope validatorCTX selector container]
+      (missingRequired scope validatorCTX selector container)
       (keyOf selector)
       container
 
@@ -202,7 +201,7 @@ selectType ::
 selectType name =
   askSchema >>= maybe (failure err) pure . lookupDataType name
   where
-    err = "Unknown Type " <> msgValidation name <> "." :: ValidationError
+    err = ["Unknown Type " <> msgValidation name <> "."]
 
 selectKnown ::
   ( IsMap k c,

@@ -33,7 +33,7 @@ where
 
 import Data.Morpheus.Internal.Ext (Eventless)
 import Data.Morpheus.Internal.Utils
-  ( Failure (..),
+  ( failure,
   )
 import Data.Morpheus.Types.Internal.AST
   ( ANY,

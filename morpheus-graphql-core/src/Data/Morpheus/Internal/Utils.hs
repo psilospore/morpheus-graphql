@@ -11,7 +11,8 @@ module Data.Morpheus.Internal.Utils
     camelCaseFieldName,
     singleton,
     IsMap,
-    Failure (..),
+    Failure,
+    failure,
     KeyOf (..),
     toPair,
     selectBy,
@@ -37,6 +38,7 @@ module Data.Morpheus.Internal.Utils
   )
 where
 
+import Control.Monad.Except (MonadError (throwError))
 import Data.ByteString.Lazy (ByteString)
 import Data.Char
   ( toLower,
@@ -53,7 +55,6 @@ import Data.Mergeable.IsMap (FromList (..), member, selectBy, selectOr, unsafeFr
 import qualified Data.Mergeable.IsMap as M
 import Data.Mergeable.SafeHashMap (SafeHashMap)
 import Data.Morpheus.Ext.Empty
-import Data.Morpheus.Ext.Failure (Failure (..))
 import Data.Morpheus.Ext.KeyOf (KeyOf (..), toPair)
 import Data.Morpheus.Types.Internal.AST.Base (Ref)
 import Data.Morpheus.Types.Internal.AST.Error
@@ -76,6 +77,11 @@ import Relude hiding
     encodeUtf8,
     fromList,
   )
+
+type Failure = MonadError
+
+failure :: MonadError e m => e -> m a
+failure = throwError
 
 (<:>) :: (Merge (HistoryT m) a, Monad m) => a -> a -> m a
 x <:> y = startHistory (merge x y)

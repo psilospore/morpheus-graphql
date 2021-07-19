@@ -23,7 +23,7 @@ import Data.Morpheus.Error.Selection
   )
 import Data.Morpheus.Ext.Empty (Empty (..))
 import Data.Morpheus.Internal.Utils
-  ( Failure (..),
+  ( failure,
     keyOf,
     mergeConcat,
     singleton,

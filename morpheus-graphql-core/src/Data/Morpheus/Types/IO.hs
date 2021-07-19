@@ -37,7 +37,7 @@ import Relude hiding
     encodeUtf8,
   )
 
-renderResponse :: Result e ValidValue -> GQLResponse
+renderResponse :: Result e GQLError ValidValue -> GQLResponse
 renderResponse (Failure errors) = Errors (sortOn locations errors)
 renderResponse Success {result} = Data result
 

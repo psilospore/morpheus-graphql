@@ -72,9 +72,10 @@ import Data.Mergeable.SafeHashMap
 import Data.Morpheus.Internal.Utils
   ( (<:>),
     Empty (..),
-    Failure (..),
+    Failure,
     IsMap (..),
     KeyOf (..),
+    failure,
     insert,
     selectOr,
     toPair,

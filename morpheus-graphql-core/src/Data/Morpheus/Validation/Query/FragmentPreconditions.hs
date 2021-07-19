@@ -23,7 +23,7 @@ import Data.Morpheus.Internal.Graph
     cycleChecking,
   )
 import Data.Morpheus.Internal.Utils
-  ( Failure (..),
+  ( failure,
     selectOr,
   )
 import Data.Morpheus.Types.Internal.AST

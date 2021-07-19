@@ -2,7 +2,7 @@
 
 module Data.Morpheus.Internal.Ext
   ( Eventless,
-    Failure (..),
+    Failure,
     PushEvents (..),
     Result (..),
     ResultT (..),
@@ -17,9 +17,10 @@ module Data.Morpheus.Internal.Ext
     runResolutionT,
     toEither,
     Merge (..),
+    failure,
   )
 where
 
 import Data.Mergeable
 import Data.Morpheus.Ext.Result
-import Data.Morpheus.Internal.Utils ((<:>))
+import Data.Morpheus.Internal.Utils
