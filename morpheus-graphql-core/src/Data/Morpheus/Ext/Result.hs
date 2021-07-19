@@ -18,21 +18,20 @@ module Data.Morpheus.Ext.Result
     resultOr,
     sortErrors,
     toEither,
-    Eventless2,
+    ValidationResult,
   )
 where
 
 import Control.Monad.Except (MonadError (..))
 import Data.Morpheus.Types.Internal.AST.Error
   ( GQLError (..),
-    GQLErrors,
     ValidationError,
   )
 import Relude
 
 type Eventless = Result () GQLError
 
-type Eventless2 = Result () ValidationError
+type ValidationResult = Result () ValidationError
 
 -- EVENTS
 class PushEvents e m where
@@ -69,8 +68,8 @@ instance Bifunctor (Result ev) where
   bimap f g Success {..} = Success {warnings = f <$> warnings, result = g result, ..}
   bimap f _ Failure {..} = Failure (f <$> errors)
 
-instance MonadError [er] (Result ev er) where
-  throwError = Failure
+instance MonadError er (Result ev er) where
+  throwError = Failure . pure
   catchError = undefined
 
 instance PushEvents events (Result events er) where
@@ -109,7 +108,7 @@ instance Monad m => Monad (ResultT event m) where
 instance MonadTrans (ResultT event) where
   lift = ResultT . fmap pure
 
-instance Monad m => MonadError GQLErrors (ResultT event m) where
+instance Monad m => MonadError GQLError (ResultT event m) where
   throwError = ResultT . pure . throwError
   catchError = undefined
 

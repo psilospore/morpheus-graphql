@@ -24,6 +24,7 @@ import Data.Morpheus.Error.Selection
 import Data.Morpheus.Ext.Empty (Empty (..))
 import Data.Morpheus.Internal.Utils
   ( failure,
+    failureMany,
     keyOf,
     mergeConcat,
     singleton,
@@ -93,7 +94,7 @@ selectionsWithoutTypename = filter (("__typename" /=) . keyOf) . toList
 singleTopLevelSelection :: Operation RAW -> SelectionSet VALID -> SelectionValidator ()
 singleTopLevelSelection Operation {operationType = Subscription, operationName} selSet =
   case selectionsWithoutTypename selSet of
-    (_ : xs) | not (null xs) -> failure $ fmap (singleTopLevelSelectionError operationName) xs
+    (_ : (x : xs)) -> failureMany $ fmap (singleTopLevelSelectionError operationName) (x :| xs)
     _ -> pure ()
 singleTopLevelSelection _ _ = pure ()
 

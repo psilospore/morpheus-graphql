@@ -63,6 +63,7 @@ import Data.Morpheus.Internal.Utils
   ( IsMap,
     KeyOf (..),
     failure,
+    failureMany,
     member,
     selectBy,
     selectOr,
@@ -111,11 +112,10 @@ getUnused :: (KeyOf k b, IsMap k c, Foldable t) => c a -> t b -> [b]
 getUnused uses = filter (not . (`member` uses) . keyOf) . toList
 
 failOnUnused :: Unused ctx b => [b] -> Validator s ctx ()
-failOnUnused x
-  | null x = pure ()
-  | otherwise = do
-    ctx <- validatorCTX <$> Validator ask
-    failure $ fmap (unused ctx) x
+failOnUnused [] = pure ()
+failOnUnused (x : xs) = do
+  ctx <- validatorCTX <$> Validator ask
+  failureMany $ unused ctx <$> (x :| xs)
 
 checkUnused ::
   ( KeyOf k b,
@@ -138,8 +138,8 @@ constraint IMPLEMENTABLE _ TypeDefinition {typeContent = DataObject {objectField
   pure TypeDefinition {typeContent = DataObject {objectFields, ..}, ..}
 constraint IMPLEMENTABLE _ TypeDefinition {typeContent = DataInterface fields, ..} =
   pure TypeDefinition {typeContent = DataInterface fields, ..}
-constraint INPUT ctx x = maybe (failure [kindViolation INPUT ctx]) pure (fromAny x)
-constraint target ctx _ = failure [kindViolation target ctx]
+constraint INPUT ctx x = maybe (failure (kindViolation INPUT ctx)) pure (fromAny x)
+constraint target ctx _ = failure (kindViolation target ctx)
 
 selectRequired ::
   ( IsMap FieldName c,
@@ -193,7 +193,7 @@ selectWithDefaultValue
       failSelection = do
         ValidatorContext {scope, validatorCTX} <- Validator ask
         position <- asksScope position
-        failure [missingRequired scope validatorCTX (Ref fieldName (fromMaybe (Position 0 0) position)) values]
+        failure $ missingRequired scope validatorCTX (Ref fieldName (fromMaybe (Position 0 0) position)) values
 
 selectType ::
   TypeName ->
@@ -201,7 +201,7 @@ selectType ::
 selectType name =
   askSchema >>= maybe (failure err) pure . lookupDataType name
   where
-    err = ["Unknown Type " <> msgValidation name <> "."]
+    err = "Unknown Type " <> msgValidation name <> "."
 
 selectKnown ::
   ( IsMap k c,

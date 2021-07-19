@@ -155,6 +155,9 @@ module Data.Morpheus.Types.Internal.AST
     readErrorMessage,
     typeDefinitions,
     FragmentName,
+    isInternal,
+    Error,
+    Errors,
   )
 where
 

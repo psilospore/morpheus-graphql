@@ -27,12 +27,12 @@ import Data.Morpheus.App.Internal.Resolving
     ResolverState,
     ResolverValue (..),
     RootResolverValue (..),
-    failure,
     getArguments,
     liftResolverState,
     mkObject,
     mkUnion,
   )
+import Data.Morpheus.Internal.Utils (failure)
 import Data.Morpheus.Kind
   ( CUSTOM,
     DerivingKind,

@@ -61,7 +61,6 @@ import Data.Morpheus.Types.Internal.AST.Base
   )
 import Data.Morpheus.Types.Internal.AST.Error
   ( ValidationError,
-    ValidationErrors,
     at,
     atPositions,
     msgValidation,
@@ -146,7 +145,7 @@ instance RenderGQL (SelectionContent VALID) where
 
 instance
   ( Monad m,
-    Failure ValidationErrors m,
+    Failure ValidationError m,
     Merge (HistoryT m) (SelectionSet s)
   ) =>
   Merge (HistoryT m) (SelectionContent s)
@@ -158,9 +157,9 @@ instance
     | otherwise = do
       path <- ask
       failure
-        [ msgValidation (intercalate "." $ fmap refName path)
+        ( msgValidation (intercalate "." $ fmap refName path)
             `atPositions` fmap refPosition path
-        ]
+        )
 
 deriving instance Show (SelectionContent a)
 
@@ -183,18 +182,16 @@ instance RenderGQL UnionTag where
       <> renderGQL unionTagName
       <> renderSelectionSet unionTagSelection
 
-mergeConflict :: (Monad m, Failure [ValidationError] m) => ValidationError -> HistoryT m a
+mergeConflict :: (Monad m, Failure ValidationError m) => ValidationError -> HistoryT m a
 mergeConflict err = do
   path <- ask
   __mergeConflict path
   where
-    __mergeConflict :: (Monad m, Failure [ValidationError] m) => [Ref FieldName] -> HistoryT m a
-    __mergeConflict [] = failure [err]
+    __mergeConflict :: (Monad m, Failure ValidationError m) => [Ref FieldName] -> HistoryT m a
+    __mergeConflict [] = failure err
     __mergeConflict refs@(rootField : xs) =
       failure
-        [ (renderSubfields `atPositions` fmap refPosition refs)
-            <> err
-        ]
+        (renderSubfields `atPositions` fmap refPosition refs <> err)
       where
         fieldConflicts ref = msgValidation (refName ref) <> " conflict because "
         renderSubfield ref txt = txt <> "subfields " <> fieldConflicts ref
@@ -207,7 +204,7 @@ mergeConflict err = do
 
 instance
   ( Monad m,
-    Failure ValidationErrors m
+    Failure ValidationError m
   ) =>
   Merge (HistoryT m) UnionTag
   where
@@ -256,7 +253,7 @@ useDifferentAliases =
 
 instance
   ( Monad m,
-    Failure ValidationErrors m,
+    Failure ValidationError m,
     Merge (HistoryT m) (SelectionSet s)
   ) =>
   Merge (HistoryT m) (Selection s)
@@ -265,7 +262,7 @@ instance
 
 mergeSelection ::
   ( Monad m,
-    Failure ValidationErrors m,
+    Failure ValidationError m,
     Merge (HistoryT m) (SelectionSet s)
   ) =>
   Selection s ->
@@ -308,7 +305,7 @@ msgValue = msgValidation . show
 --     user1: product
 --   }
 mergeName ::
-  (Monad m, Failure [ValidationError] m, Foldable t) =>
+  (Monad m, Failure ValidationError m, Foldable t) =>
   t Position ->
   Selection s1 ->
   Selection s2 ->

@@ -31,6 +31,7 @@ import Data.Morpheus.Types.Internal.AST
   ( Operation,
     Schema (..),
     VALID,
+    toGQLError,
   )
 import Data.Morpheus.Types.Internal.Config
   ( Config (..),
@@ -49,16 +50,17 @@ parseSchema ::
 parseSchema =
   sortErrors
     . ( P.parseSchema
-          >=> validateSchema
-            True
-            Config
-              { debug = False,
-                validationMode = FULL_VALIDATION
-              }
+          >=> first toGQLError
+            . validateSchema
+              True
+              Config
+                { debug = False,
+                  validationMode = FULL_VALIDATION
+                }
       )
 
 parseRequestWith :: Config -> Schema VALID -> GQLRequest -> Eventless (Operation VALID)
 parseRequestWith config schema req = do
   qu <- parseRequest req
-  fillSchema <- internalSchema <:> schema
-  validateRequest config fillSchema qu
+  fillSchema <- first toGQLError (internalSchema <:> schema)
+  first toGQLError (validateRequest config fillSchema qu)

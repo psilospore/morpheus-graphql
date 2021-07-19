@@ -34,6 +34,7 @@ module Data.Morpheus.App.Internal.Resolving.Resolver
   )
 where
 
+import Control.Monad.Except (MonadError (..))
 import Control.Monad.Trans.Reader (mapReaderT)
 import Data.Morpheus.App.Internal.Resolving.Event
   ( EventHandler (..),
@@ -52,11 +53,11 @@ import Data.Morpheus.App.Internal.Resolving.ResolverState
   )
 import Data.Morpheus.Internal.Ext
   ( Eventless,
-    Failure (..),
     PushEvents (..),
     Result (..),
     ResultT (..),
     cleanEvents,
+    failure,
     mapEvent,
   )
 import Data.Morpheus.Types.IO
@@ -72,8 +73,9 @@ import Data.Morpheus.Types.Internal.AST
     Selection (..),
     VALID,
     ValidValue,
+    ValidationError,
     Value (..),
-    msg,
+    msgValidation,
   )
 import Relude hiding
   ( Show,
@@ -144,11 +146,12 @@ instance (LiftOperation o) => MonadTrans (Resolver o e) where
   lift = packResolver . lift
 
 -- Failure
-instance (LiftOperation o, Monad m, Failure err (ResolverStateT e m)) => Failure err (Resolver o e m) where
-  failure = packResolver . failure
+instance (LiftOperation o, Monad m) => MonadError ValidationError (Resolver o e m) where
+  throwError = packResolver . throwError
+  catchError = undefined
 
 instance (Monad m, LiftOperation o) => MonadFail (Resolver o e m) where
-  fail = failure . msg
+  fail = throwError . msgValidation
 
 -- PushEvents
 instance (Monad m) => PushEvents e (Resolver MUTATION e m) where
@@ -242,4 +245,4 @@ subscriptionEvents ctx@ResolverContext {currentSelection} (Just channelGenerator
     handle = do
       channel <- channelGenerator currentSelection
       pure $ Subscribe channel res
-subscriptionEvents ctx Nothing _ = failure [resolverFailureMessage ctx "channel Resolver is not defined"]
+subscriptionEvents ctx Nothing _ = failure $ resolverFailureMessage ctx "channel Resolver is not defined"

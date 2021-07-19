@@ -31,12 +31,14 @@ import Data.Morpheus.Error
 import Data.Morpheus.Internal.Ext
   ( Eventless,
     Result (..),
+    ValidationResult,
   )
 import Data.Morpheus.Types.Internal.AST
   ( ExecutableDocument (..),
     Operation (..),
     Schema,
     VALID,
+    toGQLError,
   )
 import Language.Haskell.TH
 import Relude
@@ -44,14 +46,14 @@ import Relude
 defineQuery :: IO (Eventless (Schema VALID)) -> (ExecutableDocument, String) -> Q [Dec]
 defineQuery ioSchema (query, src) = do
   schema <- runIO ioSchema
-  case schema >>= (`validateWith` query) of
+  case schema >>= first toGQLError . (`validateWith` query) of
     Failure errors -> fail (renderGQLErrors errors)
     Success
       { result,
         warnings
       } -> gqlWarnings warnings >> declareClient src result
 
-validateWith :: Schema VALID -> ExecutableDocument -> Eventless ClientDefinition
+validateWith :: Schema VALID -> ExecutableDocument -> ValidationResult ClientDefinition
 validateWith
   schema
   rawRequest@ExecutableDocument

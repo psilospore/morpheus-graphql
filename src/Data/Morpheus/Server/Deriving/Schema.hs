@@ -28,12 +28,9 @@ where
 
 import Data.Morpheus.App.Internal.Resolving
   ( Resolver,
-    resultOr,
   )
 import Data.Morpheus.Core (defaultConfig, validateSchema)
-import Data.Morpheus.Internal.Utils
-  ( Failure (..),
-  )
+import Data.Morpheus.Internal.Ext
 import Data.Morpheus.Kind
   ( CUSTOM,
     DerivingKind,
@@ -91,7 +88,6 @@ import Data.Morpheus.Types.Internal.AST
     FieldContent (..),
     FieldContent (..),
     FieldsDefinition,
-    GQLErrors,
     IN,
     LEAF,
     MUTATION,
@@ -106,8 +102,8 @@ import Data.Morpheus.Types.Internal.AST
     TypeDefinition (..),
     TypeName,
     UnionMember (memberName),
-    ValidationError,
     fieldsToArguments,
+    toGQLError,
   )
 import Data.Morpheus.Utils.Kinded
   ( CategoryValue (..),
@@ -141,7 +137,7 @@ compileTimeSchemaValidation ::
   proxy (root m event qu mu su) ->
   Q Exp
 compileTimeSchemaValidation =
-  fromSchema
+  fromSchema . first toGQLError
     . (deriveSchema >=> validateSchema True defaultConfig)
 
 deriveSchema ::
@@ -152,16 +148,13 @@ deriveSchema ::
     e
     query
     mut
-    subs
-    f.
-  ( SchemaConstraints e m query mut subs,
-    Failure GQLErrors f
+    subs.
+  ( SchemaConstraints e m query mut subs
   ) =>
   proxy (root m e query mut subs) ->
-  f (Schema CONST)
-deriveSchema _ = resultOr failure pure schema
+  ValidationResult (Schema CONST)
+deriveSchema _ = toSchema schemaT
   where
-    schema = toSchema schemaT
     schemaT ::
       SchemaT
         OUT
@@ -240,7 +233,7 @@ instance
       getUnionNames :: TypeContent TRUE OUT CONST -> SchemaT OUT [TypeName]
       getUnionNames DataUnion {unionMembers} = pure $ toList $ memberName <$> unionMembers
       getUnionNames DataObject {} = pure [gqlTypeName (__typeData unionProxy)]
-      getUnionNames _ = failure ["guarded type must be an union or object" :: ValidationError]
+      getUnionNames _ = failure "guarded type must be an union or object"
 
 instance
   ( GQLType b,

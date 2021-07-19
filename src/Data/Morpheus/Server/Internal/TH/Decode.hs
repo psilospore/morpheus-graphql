@@ -14,11 +14,10 @@ module Data.Morpheus.Server.Internal.TH.Decode
   )
 where
 
-import Data.Morpheus.App.Internal.Resolving
-  ( Failure (..),
-  )
 import Data.Morpheus.Internal.Utils
-  ( selectOr,
+  ( Failure,
+    failure,
+    selectOr,
   )
 import Data.Morpheus.Types.GQLScalar
   ( toScalar,

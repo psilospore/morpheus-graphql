@@ -46,7 +46,6 @@ import Data.Morpheus.Types.Internal.AST
     FieldDefinition (..),
     FieldName,
     FieldsDefinition,
-    GQLErrors,
     IN,
     InternalError,
     OUT,
@@ -77,8 +76,7 @@ import Relude
 
 class
   ( Monad m,
-    Failure InternalError m,
-    Failure GQLErrors m
+    Failure InternalError m
   ) =>
   WithSchema m
   where

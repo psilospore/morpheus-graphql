@@ -24,7 +24,7 @@ import Data.Morpheus.App.Internal.Resolving
     SubscriptionField (..),
   )
 import Data.Morpheus.Internal.Utils
-  ( Failure (..),
+  ( failure,
     selectBy,
   )
 import Data.Morpheus.Server.Deriving.Decode

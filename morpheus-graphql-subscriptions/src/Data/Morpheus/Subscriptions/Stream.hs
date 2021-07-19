@@ -32,9 +32,6 @@ import Data.Morpheus.App.Internal.Resolving
     ResultT (..),
     runResultT,
   )
-import Data.Morpheus.Error
-  ( globalErrorMessage,
-  )
 import Data.Morpheus.Internal.Utils
   ( failure,
   )
@@ -57,9 +54,11 @@ import Data.Morpheus.Types.IO
     GQLResponse (..),
   )
 import Data.Morpheus.Types.Internal.AST
-  ( GQLErrors,
+  ( GQLError,
+    GQLErrors,
     VALID,
     Value (..),
+    toGQLError,
   )
 import Data.UUID (UUID)
 import Relude hiding (ByteString)
@@ -118,7 +117,7 @@ handleResponseStream ::
 handleResponseStream session (ResultT res) =
   SubOutput $ const $ unfoldR <$> res
   where
-    execute Publish {} = apolloError $ globalErrorMessage "websocket can only handle subscriptions, not mutations"
+    execute Publish {} = apolloError [toGQLError "websocket can only handle subscriptions, not mutations"]
     execute (Subscribe ch subRes) = Right $ startSession ch subRes session
     --------------------------
     unfoldR Success {events} = traverse execute events
@@ -208,7 +207,7 @@ handleResponseHTTP
       runResult Success {result, events} = traverse_ eventPublisher events $> Data result
       runResult Failure {errors} = pure $ Errors errors
       execute (Publish event) = pure event
-      execute Subscribe {} = failure (globalErrorMessage "http server can't handle subscription")
+      execute Subscribe {} = failure $ toGQLError "http server can't handle subscription"
 
 handleRes ::
   (Monad m) =>
@@ -220,7 +219,7 @@ handleRes res execute = ResultT $ runResultT res >>= runResultT . unfoldRes exec
 unfoldRes ::
   (Monad m) =>
   (e -> ResultT e' m e') ->
-  Result e a ->
+  Result e GQLError a ->
   ResultT e' m a
 unfoldRes execute Success {result, warnings, events} =
   traverse execute events

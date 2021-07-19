@@ -28,6 +28,7 @@ module Data.Morpheus.App.Internal.Resolving.ResolverState
   )
 where
 
+import Control.Monad.Except (MonadError (..))
 import Control.Monad.Trans.Reader (mapReaderT)
 import Data.Morpheus.Core
   ( Config (..),
@@ -36,7 +37,6 @@ import Data.Morpheus.Core
   )
 import Data.Morpheus.Internal.Ext
   ( Eventless,
-    Failure (..),
     PushEvents (..),
     Result,
     ResultT (..),
@@ -44,9 +44,7 @@ import Data.Morpheus.Internal.Ext
   )
 import Data.Morpheus.Types.Internal.AST
   ( GQLError (..),
-    GQLErrors,
     InternalError,
-    Message,
     Operation,
     Schema,
     Selection (..),
@@ -54,9 +52,9 @@ import Data.Morpheus.Types.Internal.AST
     VALID,
     ValidationError,
     at,
-    msg,
+    isInternal,
     msgInternal,
-    readErrorMessage,
+    msgValidation,
     toGQLError,
   )
 import Relude
@@ -75,7 +73,7 @@ type ResolverState = ResolverStateT () Identity
 runResolverStateT :: ResolverStateT e m a -> ResolverContext -> ResultT e m a
 runResolverStateT = runReaderT . _runResolverStateT
 
-runResolverStateM :: ResolverStateT e m a -> ResolverContext -> m (Result e a)
+runResolverStateM :: ResolverStateT e m a -> ResolverContext -> m (Result e GQLError a)
 runResolverStateM res = runResultT . runResolverStateT res
 
 runResolverState :: ResolverState a -> ResolverContext -> Eventless a
@@ -95,23 +93,15 @@ newtype ResolverStateT event m a = ResolverStateT
 instance MonadTrans (ResolverStateT e) where
   lift = ResolverStateT . lift . lift
 
-instance (Monad m) => Failure Message (ResolverStateT e m) where
-  failure message = do
-    cxt <- asks id
-    failure [resolverFailureMessage cxt message]
-
-instance (Monad m) => Failure InternalError (ResolverStateT e m) where
-  failure message = do
+instance (Monad m) => MonadError InternalError (ResolverStateT e m) where
+  throwError err = do
     ctx <- asks id
-    failure [renderInternalResolverError ctx message]
-
-instance Monad m => Failure [ValidationError] (ResolverStateT e m) where
-  failure messages = do
-    ctx <- asks id
-    failure $ fmap (resolverFailureMessage ctx . readErrorMessage) messages
-
-instance (Monad m) => Failure GQLErrors (ResolverStateT e m) where
-  failure = ResolverStateT . lift . failure
+    let f = if isInternal err then renderInternalResolverError ctx else resolverFailureMessage ctx
+    ResolverStateT
+      $ lift
+      $ throwError
+      $ f err
+  catchError = undefined
 
 instance (Monad m) => PushEvents e (ResolverStateT e m) where
   pushEvents = ResolverStateT . lift . pushEvents
@@ -142,23 +132,19 @@ injectResult (ResultT (Identity x)) =
 clearStateResolverEvents :: (Functor m) => ResolverStateT e m a -> ResolverStateT e' m a
 clearStateResolverEvents = mapResolverState cleanEvents
 
-resolverFailureMessage :: ResolverContext -> Message -> GQLError
+resolverFailureMessage :: ResolverContext -> ValidationError -> GQLError
 resolverFailureMessage
   ctx@ResolverContext
     { currentSelection =
         Selection {selectionName, selectionPosition}
     }
-  message =
-    GQLError
-      { message =
-          "Failure on Resolving Field "
-            <> msg selectionName
-            <> ": "
-            <> message
-            <> withInternalContext ctx,
-        locations = [selectionPosition],
-        extensions = Nothing
-      }
+  err =
+    toGQLError $
+      "Failure on Resolving Field "
+        <> msgValidation selectionName
+        <> ": "
+        <> err
+        <> withInternalContext ctx `at` selectionPosition
 
 renderInternalResolverError :: ResolverContext -> InternalError -> GQLError
 renderInternalResolverError ctx@ResolverContext {currentSelection} err =
@@ -166,11 +152,11 @@ renderInternalResolverError ctx@ResolverContext {currentSelection} err =
     (err <> ". " <> msgInternal (renderContext ctx))
       `at` selectionPosition currentSelection
 
-withInternalContext :: ResolverContext -> Message
+withInternalContext :: ResolverContext -> ValidationError
 withInternalContext ResolverContext {config = Config {debug = False}} = ""
 withInternalContext resCTX = renderContext resCTX
 
-renderContext :: ResolverContext -> Message
+renderContext :: ResolverContext -> ValidationError
 renderContext
   ResolverContext
     { currentSelection,
@@ -183,11 +169,11 @@ renderContext
       <> renderSection "OperationDefinition" operation
       <> renderSection "SchemaDefinition" schema
 
-renderSection :: RenderGQL a => Message -> a -> Message
+renderSection :: RenderGQL a => ValidationError -> a -> ValidationError
 renderSection label content =
   "\n\n" <> label <> ":\n" <> line
     <> "\n\n"
-    <> msg (render content)
+    <> msgValidation (render content)
     <> "\n\n"
   where
     line = stimes (50 :: Int) "-"

@@ -43,7 +43,7 @@ import Data.Morpheus.Types.Internal.AST
     TypeRef,
     UnionMember (..),
     VALID,
-    ValidationErrors,
+    ValidationError,
     fromAny,
     fromCategory,
     getOperationDataType,
@@ -84,8 +84,7 @@ askTypeMember ::
 askTypeMember = askType2 . typed memberName >=> constraintObject
 
 askInterfaceTypes ::
-  ( Failure InternalError (m c),
-    Failure ValidationErrors (m c),
+  ( Failure ValidationError (m c),
     Monad (m c),
     MonadContext m s c,
     FromCategory (TypeContent TRUE) ANY IMPLEMENTABLE

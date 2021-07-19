@@ -21,8 +21,11 @@ module Data.Morpheus.Server.Deriving.Decode
 where
 
 import Data.Morpheus.App.Internal.Resolving
-  ( Failure (..),
-    ResolverState,
+  ( ResolverState,
+  )
+import Data.Morpheus.Internal.Utils
+  ( Failure,
+    failure,
   )
 import Data.Morpheus.Kind
   ( DerivingKind,

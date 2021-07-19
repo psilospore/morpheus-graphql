@@ -18,7 +18,7 @@ module Data.Morpheus.Validation.Internal.Directive
 where
 
 import Data.Morpheus.Internal.Utils
-  ( Failure (..),
+  ( failure,
     selectOr,
   )
 import Data.Morpheus.Types.Internal.AST

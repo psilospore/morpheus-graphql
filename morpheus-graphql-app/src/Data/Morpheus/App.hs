@@ -50,7 +50,7 @@ import Data.Morpheus.Core
 import Data.Morpheus.Internal.Ext ((<:>))
 import Data.Morpheus.Internal.Utils
   ( empty,
-    failure,
+    failureMany,
     prop,
   )
 import Data.Morpheus.Types.IO
@@ -66,7 +66,9 @@ import Data.Morpheus.Types.Internal.AST
     Selection (..),
     SelectionContent (..),
     VALID,
+    ValidationErrors,
     Value,
+    toGQLError,
   )
 import Relude hiding (ByteString, empty)
 
@@ -79,11 +81,11 @@ mkApp appSchema appResolvers =
 
 data App event (m :: * -> *)
   = App {app :: AppData event m VALID}
-  | FailApp {appErrors :: GQLErrors}
+  | FailApp {appErrors :: ValidationErrors}
 
 instance RenderGQL (App e m) where
   renderGQL App {app} = renderGQL app
-  renderGQL FailApp {appErrors} = renderGQL (A.encode appErrors)
+  renderGQL FailApp {appErrors} = renderGQL (A.encode $ map toGQLError appErrors)
 
 instance Monad m => Semigroup (App e m) where
   (FailApp err1) <> (FailApp err2) = FailApp (err1 <> err2)
@@ -125,8 +127,8 @@ validateReq ::
   GQLRequest ->
   ResponseStream event m ResolverContext
 validateReq inputSchema config request = cleanEvents $ ResultT $ pure $ do
-  validSchema <- validateSchema True config inputSchema
-  schema <- internalSchema <:> validSchema
+  validSchema <- first toGQLError (validateSchema True config inputSchema)
+  schema <- first toGQLError (internalSchema <:> validSchema)
   operation <- parseRequestWith config validSchema request
   pure $
     ResolverContext
@@ -153,7 +155,8 @@ stateless = fmap renderResponse . runResultT
 
 runAppStream :: Monad m => App event m -> GQLRequest -> ResponseStream event m (Value VALID)
 runAppStream App {app} = runAppData app
-runAppStream FailApp {appErrors} = const $ failure appErrors
+runAppStream FailApp {appErrors = x : xs} = const $ failureMany (toGQLError <$> x :| xs)
+runAppStream _ = undefined
 
 runApp :: (MapAPI a b, Monad m) => App e m -> a -> m b
 runApp app = mapAPI (stateless . runAppStream app)
@@ -165,4 +168,4 @@ withDebugger x = x
 
 eitherSchema :: App event m -> Either GQLErrors ByteString
 eitherSchema (App AppData {appSchema}) = Right (render appSchema)
-eitherSchema (FailApp errors) = Left errors
+eitherSchema (FailApp errors) = Left $ map toGQLError errors

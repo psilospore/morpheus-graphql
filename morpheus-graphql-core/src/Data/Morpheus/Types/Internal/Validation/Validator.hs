@@ -58,10 +58,7 @@ where
 
 import Control.Monad.Except (MonadError (throwError))
 import Data.Morpheus.Ext.Result
-  ( Eventless,
-  )
-import Data.Morpheus.Internal.Utils
-  ( Failure (..),
+  ( ValidationResult,
   )
 import Data.Morpheus.Rendering.RenderGQL
   ( RenderGQL,
@@ -73,11 +70,8 @@ import Data.Morpheus.Types.Internal.AST
     FieldDefinition (..),
     FieldName,
     Fragments,
-    GQLError (..),
-    GQLErrors,
     IMPLEMENTABLE,
     IN,
-    InternalError,
     Message,
     Position,
     RAW,
@@ -91,18 +85,15 @@ import Data.Morpheus.Types.Internal.AST
     TypeRef (..),
     TypeWrapper,
     VALID,
-    ValidationError,
     Variable (..),
     VariableDefinitions,
-    atPositions,
     intercalate,
     kindOf,
-    mapError,
     msg,
-    msgValidation,
     typeDefinitions,
     unpackName,
   )
+import Data.Morpheus.Types.Internal.AST.Error
 import Data.Morpheus.Types.Internal.Config (Config (..))
 import Relude hiding
   ( Constraint,
@@ -272,7 +263,7 @@ askFragments ::
   m c (Fragments s')
 askFragments = get
 
-runValidator :: Validator s ctx a -> Config -> Schema s -> Scope -> ctx -> Eventless a
+runValidator :: Validator s ctx a -> Config -> Schema s -> Scope -> ctx -> ValidationResult a
 runValidator (Validator x) config schema scope validatorCTX =
   runReaderT x ValidatorContext {..}
 
@@ -375,7 +366,7 @@ newtype Validator s ctx a = Validator
   { _runValidator ::
       ReaderT
         (ValidatorContext s ctx)
-        Eventless
+        ValidationResult
         a
   }
   deriving newtype
@@ -451,40 +442,21 @@ instance SetWith (OperationContext s1 s2) CurrentSelection where
         ..
       }
 
-instance MonadError [ValidationError] (Validator s ctx) where
-  throwError errors = do
+instance MonadError ValidationError (Validator s ctx) where
+  throwError err = do
     ctx <- Validator ask
-    failValidator (fromValidationError ctx <$> errors)
+    Validator $ lift $ throwError $ fromValidationError ctx err
 
--- instance MonadError ValidationError (Validator s ctx) where
---   throwError err = failure [err]
-
-failValidator :: GQLErrors -> Validator s ctx a
-failValidator = Validator . lift . throwError
-
-fromValidationError :: ValidatorContext s ctx -> ValidationError -> GQLError
+fromValidationError :: ValidatorContext s ctx -> ValidationError -> ValidationError
 fromValidationError
   context@ValidatorContext
     { config
-    } = mapError message
-    where
-      message
-        | debug config = (<> renderContext context)
-        | otherwise = id
-
--- can be only used for internal errors
--- instance
---   (MonadContext (Validator s) s ctx) =>
---   MonadError InternalError (Validator s ctx)
---   where
---   throwError inputMessage = do
---     ctx <- Validator ask
---     let positions = maybeToList $ position (scope ctx)
---     throwError $
---       ( coerce inputMessage
---           <> msgValidation (renderContext ctx)
---       )
---         `atPositions` positions
+    }
+  err
+    | isInternal err || debug config =
+      err <> msgValidation (renderContext context)
+        `atPositions` position (scope context)
+    | otherwise = err
 
 renderContext :: ValidatorContext s ctx -> Message
 renderContext

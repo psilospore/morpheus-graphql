@@ -20,6 +20,7 @@ module Data.Morpheus.Client.Transform.Core
   )
 where
 
+import Control.Monad.Except (MonadError)
 import Data.Morpheus.Client.Internal.Types
   ( ClientTypeDefinition (..),
   )
@@ -27,19 +28,18 @@ import Data.Morpheus.Error
   ( deprecatedField,
   )
 import Data.Morpheus.Internal.Ext
-  ( Eventless,
-    Result (..),
+  ( Result (..),
+    ValidationResult,
   )
 import Data.Morpheus.Internal.Utils
-  ( Failure (..),
-    camelCaseTypeName,
+  ( camelCaseTypeName,
+    failure,
     selectBy,
   )
 import Data.Morpheus.Types.Internal.AST
   ( ANY,
     Directives,
     FieldName,
-    GQLErrors,
     InternalError,
     RAW,
     Ref (..),
@@ -55,7 +55,6 @@ import Data.Morpheus.Types.Internal.AST
     lookupDeprecated,
     lookupDeprecatedReason,
     msgInternal,
-    toGQLError,
     typeDefinitions,
   )
 import Relude
@@ -66,7 +65,7 @@ newtype Converter a = Converter
   { runConverter ::
       ReaderT
         Env
-        Eventless
+        ValidationResult
         a
   }
   deriving
@@ -74,19 +73,19 @@ newtype Converter a = Converter
       Applicative,
       Monad,
       MonadReader Env,
-      Failure GQLErrors
+      MonadError ValidationError
     )
 
-instance Failure ValidationError Converter where
-  failure err = failure [toGQLError err]
+--instance MonadError ValidationError Converter where
+--  failure err = failure [toGQLError err]
 
 newtype UpdateT m a = UpdateT {updateTState :: a -> m a}
 
 resolveUpdates :: Monad m => a -> [UpdateT m a] -> m a
 resolveUpdates a = foldlM (&) a . fmap updateTState
 
-compileError :: InternalError -> GQLErrors
-compileError x = [toGQLError ("Unhandled Compile Time Error: \"" <> x <> "\" ;")]
+compileError :: InternalError -> InternalError
+compileError x = "Unhandled Compile Time Error: \"" <> x <> "\" ;"
 
 getType :: TypeName -> Converter (TypeDefinition ANY VALID)
 getType typename =
@@ -119,8 +118,9 @@ deprecationWarning dirs (typename, ref) = case lookupDeprecated dirs of
   Just deprecation -> Converter $ lift $ Success {result = (), warnings, events = []}
     where
       warnings =
-        deprecatedField
-          typename
-          ref
-          (lookupDeprecatedReason deprecation)
+        [ deprecatedField
+            typename
+            ref
+            (lookupDeprecatedReason deprecation)
+        ]
   Nothing -> pure ()

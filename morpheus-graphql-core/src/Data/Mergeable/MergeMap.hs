@@ -29,7 +29,6 @@ import Data.Mergeable.Internal.Merge
 import Data.Mergeable.IsMap (FromList (..), IsMap (..))
 import Data.Morpheus.Types.Internal.AST.Error
   ( ValidationError,
-    ValidationErrors,
   )
 import Language.Haskell.TH.Syntax (Lift (..))
 import Relude hiding (fromList)
@@ -86,8 +85,8 @@ resolveMergeable ::
   m (MergeMap dups k a)
 resolveMergeable (x :| xs) = recursiveMerge (MergeMap . NM.fromList) (x : xs)
 
-toNonEmpty :: MonadError ValidationErrors f => [a] -> f (NonEmpty a)
-toNonEmpty [] = throwError ["empty selection sets are not supported." :: ValidationError]
+toNonEmpty :: MonadError ValidationError f => [a] -> f (NonEmpty a)
+toNonEmpty [] = throwError ("empty selection sets are not supported." :: ValidationError)
 toNonEmpty (x : xs) = pure (x :| xs)
 
 instance (Merge m a, Hashable k, Eq k, Eq a) => FromList m (MergeMap 'False) k a where

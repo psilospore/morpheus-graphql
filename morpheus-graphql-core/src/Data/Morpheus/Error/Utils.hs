@@ -26,6 +26,7 @@ errorMessage position message =
       }
   ]
 
+{-# DEPRECATED globalErrorMessage "use validation errors" #-}
 globalErrorMessage :: Message -> GQLErrors
 globalErrorMessage message =
   [ GQLError

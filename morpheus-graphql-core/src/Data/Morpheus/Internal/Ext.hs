@@ -1,8 +1,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module Data.Morpheus.Internal.Ext
-  ( Eventless,
-    Failure,
+  ( Failure,
     PushEvents (..),
     Result (..),
     ResultT (..),
@@ -18,6 +17,8 @@ module Data.Morpheus.Internal.Ext
     toEither,
     Merge (..),
     failure,
+    Eventless,
+    ValidationResult,
   )
 where
 

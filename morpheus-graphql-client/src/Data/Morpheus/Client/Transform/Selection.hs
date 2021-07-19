@@ -22,10 +22,11 @@ import Data.Morpheus.Client.Transform.Core (Converter (..), compileError, deprec
 import Data.Morpheus.Client.Transform.Inputs (renderNonOutputTypes, renderOperationArguments)
 import Data.Morpheus.Internal.Ext
   ( Eventless,
+    ValidationResult,
   )
 import Data.Morpheus.Internal.Utils
-  ( Failure (..),
-    empty,
+  ( empty,
+    failure,
     keyOf,
     selectBy,
   )
@@ -62,7 +63,7 @@ toClientDefinition ::
   Schema VALID ->
   VariableDefinitions RAW ->
   Operation VALID ->
-  Eventless ClientDefinition
+  ValidationResult ClientDefinition
 toClientDefinition schema vars = flip runReaderT (schema, vars) . runConverter . genOperation
 
 genOperation :: Operation VALID -> Converter ClientDefinition

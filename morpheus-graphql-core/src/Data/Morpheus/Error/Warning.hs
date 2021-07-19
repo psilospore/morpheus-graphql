@@ -18,7 +18,7 @@ import Data.Morpheus.Types.Internal.AST.Base
     Ref (..),
     msg,
   )
-import Data.Morpheus.Types.Internal.AST.Error (GQLErrors)
+import Data.Morpheus.Types.Internal.AST.Error (GQLErrors, ValidationError, at, msgValidation)
 import Data.Morpheus.Types.Internal.AST.Name
   ( FieldName,
   )
@@ -38,15 +38,14 @@ deprecatedEnum typeName Ref {refPosition, refName} reason =
       <> " is deprecated."
       <> msg (maybe "" (" " <>) reason)
 
-deprecatedField :: FieldName -> Ref FieldName -> Maybe Description -> GQLErrors
+deprecatedField :: FieldName -> Ref FieldName -> Maybe Description -> ValidationError
 deprecatedField typeName Ref {refPosition, refName} reason =
-  errorMessage refPosition $
-    "the field "
-      <> msg typeName
-      <> "."
-      <> msg refName
-      <> " is deprecated."
-      <> msg (maybe "" (" " <>) reason)
+  "the field "
+    <> msgValidation typeName
+    <> "."
+    <> msgValidation refName
+    <> " is deprecated."
+    <> msgValidation (maybe "" (" " <>) reason) `at` refPosition
 
 gqlWarnings :: GQLErrors -> Q ()
 gqlWarnings [] = pure ()

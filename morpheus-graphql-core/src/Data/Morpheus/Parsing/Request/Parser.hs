@@ -41,6 +41,7 @@ import Data.Morpheus.Types.Internal.AST
     Variables,
     packName,
     replaceValue,
+    toGQLError,
   )
 import Relude hiding
   ( empty,
@@ -66,9 +67,10 @@ parseExecutableDocument variables =
 
 parseRequest :: GQLRequest -> Eventless ExecutableDocument
 parseRequest GQLRequest {query, variables} =
-  processParser
-    (parseExecutableDocument $ toVariables variables)
-    (toLBS query)
+  first toGQLError $
+    processParser
+      (parseExecutableDocument $ toVariables variables)
+      (toLBS query)
   where
     toVariables :: Maybe Aeson.Value -> Variables
     toVariables (Just (Aeson.Object x)) = unsafeFromList $ toMorpheusValue <$> toList x

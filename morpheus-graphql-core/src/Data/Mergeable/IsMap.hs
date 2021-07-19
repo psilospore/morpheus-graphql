@@ -15,7 +15,7 @@ import Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Lazy as HM
 import Data.Mergeable.Internal.Merge (mergeNoDuplicates)
 import Data.Mergeable.Internal.NameCollision (NameCollision)
-import Data.Morpheus.Types.Internal.AST.Error (ValidationErrors)
+import Data.Morpheus.Types.Internal.AST.Error (ValidationError)
 import Relude
 
 class IsMap k m | m -> k where
@@ -34,14 +34,14 @@ instance (Eq k, Hashable k) => IsMap k (HashMap k) where
   lookup = HM.lookup
   member = HM.member
 
-selectBy :: (MonadError [e] m, IsMap k c, Monad m) => e -> k -> c a -> m a
-selectBy err = selectOr (throwError [err]) pure
+selectBy :: (MonadError e m, IsMap k c, Monad m) => e -> k -> c a -> m a
+selectBy err = selectOr (throwError err) pure
 
 selectOr :: IsMap k c => d -> (a -> d) -> k -> c a -> d
 selectOr fb f key lib = maybe fb f (lookup key lib)
 
 class FromList m map k a where
-  fromList :: (Monad m, MonadError ValidationErrors m) => [(k, a)] -> m (map k a)
+  fromList :: (Monad m, MonadError ValidationError m) => [(k, a)] -> m (map k a)
 
 instance (Hashable k, Eq k, NameCollision a) => FromList m HashMap k a where
   fromList = mergeNoDuplicates HM.fromList

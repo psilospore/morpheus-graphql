@@ -44,6 +44,7 @@ import Data.Morpheus.Schema.Schema (internalSchema)
 import Data.Morpheus.Types.Internal.AST
   ( Schema,
     VALID,
+    toGQLError,
   )
 import Data.Morpheus.Types.Internal.Config
   ( Config (..),
@@ -59,4 +60,4 @@ import Data.Morpheus.Validation.Query.Validation
 import Relude hiding (ByteString)
 
 parseFullSchema :: ByteString -> Eventless (Schema VALID)
-parseFullSchema = parseSchema >=> (internalSchema <:>)
+parseFullSchema = parseSchema >=> first toGQLError . (internalSchema <:>)

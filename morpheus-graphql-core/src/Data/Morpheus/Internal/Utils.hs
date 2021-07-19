@@ -35,6 +35,7 @@ module Data.Morpheus.Internal.Utils
     unsafeFromList,
     insert,
     fromElems,
+    failureMany,
   )
 where
 
@@ -58,7 +59,7 @@ import Data.Morpheus.Ext.Empty
 import Data.Morpheus.Ext.KeyOf (KeyOf (..), toPair)
 import Data.Morpheus.Types.Internal.AST.Base (Ref)
 import Data.Morpheus.Types.Internal.AST.Error
-  ( ValidationErrors,
+  ( ValidationError,
   )
 import Data.Morpheus.Types.Internal.AST.Name
   ( FieldName,
@@ -82,6 +83,9 @@ type Failure = MonadError
 
 failure :: MonadError e m => e -> m a
 failure = throwError
+
+failureMany :: MonadError e m => NonEmpty e -> m a
+failureMany (x :| xs) = throwError x <* traverse throwError xs
 
 (<:>) :: (Merge (HistoryT m) a, Monad m) => a -> a -> m a
 x <:> y = startHistory (merge x y)
@@ -124,7 +128,7 @@ singleton x = M.singleton (keyOf x) x
 
 traverseCollection ::
   ( Monad m,
-    Failure ValidationErrors m,
+    Failure ValidationError m,
     KeyOf k b,
     FromList m map k b,
     Foldable t
@@ -136,7 +140,7 @@ traverseCollection f a = fromElems =<< traverse f (toList a)
 
 fromElems ::
   ( Monad m,
-    Failure ValidationErrors m,
+    Failure ValidationError m,
     KeyOf k a,
     FromList m map k a
   ) =>
@@ -148,7 +152,7 @@ insert ::
   ( NameCollision a,
     KeyOf k a,
     Monad m,
-    Failure ValidationErrors m
+    Failure ValidationError m
   ) =>
   a ->
   SafeHashMap k a ->

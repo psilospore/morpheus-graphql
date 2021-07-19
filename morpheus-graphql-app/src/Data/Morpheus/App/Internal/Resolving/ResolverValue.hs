@@ -40,14 +40,14 @@ import Data.Morpheus.Internal.Ext
     Merge (..),
   )
 import Data.Morpheus.Internal.Utils
-  ( Failure (..),
+  ( Failure,
+    failure,
     keyOf,
     selectOr,
     traverseCollection,
   )
 import Data.Morpheus.Types.Internal.AST
   ( FieldName,
-    GQLErrors,
     InternalError,
     ObjectEntry (..),
     ScalarValue (..),
@@ -59,13 +59,12 @@ import Data.Morpheus.Types.Internal.AST
     UnionTag (..),
     VALID,
     ValidValue,
-    ValidationErrors,
+    ValidationError,
     Value (..),
     Value (..),
     decodeScientific,
     msgInternal,
     packName,
-    toGQLError,
     unitFieldName,
     unitTypeName,
     unpackName,
@@ -131,8 +130,6 @@ mergeResolver a b = do
 lookupRes ::
   ( Monad m,
     MonadReader ResolverContext m,
-    Failure GQLErrors m,
-    Failure ValidationErrors m,
     Failure InternalError m
   ) =>
   Selection VALID ->
@@ -182,9 +179,7 @@ __encode ::
   forall m.
   ( Monad m,
     MonadReader ResolverContext m,
-    Failure GQLErrors m,
-    Failure ValidationErrors m,
-    Failure InternalError m
+    Failure ValidationError m
   ) =>
   ResolverValue m ->
   Selection VALID ->
@@ -222,9 +217,7 @@ __encode obj sel@Selection {selectionContent} = encodeNode obj selectionContent
 runDataResolver ::
   ( Monad m,
     MonadReader ResolverContext m,
-    Failure GQLErrors m,
-    Failure ValidationErrors m,
-    Failure InternalError m
+    Failure ValidationError m
   ) =>
   ResolverValue m ->
   m ValidValue
@@ -232,7 +225,7 @@ runDataResolver res = asks currentSelection >>= __encode res
 
 withObject ::
   ( Monad m,
-    Failure GQLErrors m
+    Failure ValidationError m
   ) =>
   TypeName ->
   (SelectionSet VALID -> m value) ->
@@ -243,15 +236,13 @@ withObject __typename f Selection {selectionName, selectionContent, selectionPos
     checkContent (SelectionSet selection) = f selection
     checkContent (UnionSelection interfaceSel unionSel) =
       f (selectOr interfaceSel unionTagSelection __typename unionSel)
-    checkContent _ = failure [toGQLError $ subfieldsNotSelected selectionName "" selectionPosition]
+    checkContent _ = failure $ subfieldsNotSelected selectionName "" selectionPosition
 
 resolveObject ::
   forall m.
   ( Monad m,
     MonadReader ResolverContext m,
-    Failure ValidationErrors m,
-    Failure InternalError m,
-    Failure GQLErrors m
+    Failure InternalError m
   ) =>
   SelectionSet VALID ->
   ResolverValue m ->

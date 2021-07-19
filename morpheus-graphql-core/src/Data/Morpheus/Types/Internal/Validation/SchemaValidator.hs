@@ -31,7 +31,7 @@ module Data.Morpheus.Types.Internal.Validation.SchemaValidator
   )
 where
 
-import Data.Morpheus.Internal.Ext (Eventless)
+import Data.Morpheus.Ext.Result (ValidationResult)
 import Data.Morpheus.Internal.Utils
   ( failure,
   )
@@ -44,7 +44,6 @@ import Data.Morpheus.Types.Internal.AST
     TypeContent (..),
     TypeDefinition (..),
     TypeName,
-    ValidationError,
     mkBaseType,
     msgValidation,
   )
@@ -127,7 +126,7 @@ updateLocal f ctx = ctx {local = f (local ctx)}
 
 type SchemaValidator c = Validator CONST (TypeSystemContext c)
 
-runSchemaValidator :: Validator s (TypeSystemContext ()) a -> Config -> Schema s -> Eventless a
+runSchemaValidator :: Validator s (TypeSystemContext ()) a -> Config -> Schema s -> ValidationResult a
 runSchemaValidator value config sysSchema =
   runValidator
     value
@@ -147,4 +146,4 @@ constraintInterface
       typeContent = DataInterface fields
     } = pure (typeName, fields)
 constraintInterface TypeDefinition {typeName} =
-  failure ["type " <> msgValidation typeName <> " must be an interface" :: ValidationError]
+  failure $ "type " <> msgValidation typeName <> " must be an interface"

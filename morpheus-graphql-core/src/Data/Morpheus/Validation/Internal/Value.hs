@@ -17,7 +17,7 @@ where
 import Data.Morpheus.Error.Input (typeViolation)
 import Data.Morpheus.Error.Variable (incompatibleVariableType)
 import Data.Morpheus.Internal.Utils
-  ( Failure (..),
+  ( failure,
     singleton,
   )
 import Data.Morpheus.Types.Internal.AST

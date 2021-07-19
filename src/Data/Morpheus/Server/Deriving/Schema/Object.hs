@@ -14,9 +14,9 @@ module Data.Morpheus.Server.Deriving.Schema.Object
   )
 where
 
-import Data.Morpheus.App.Internal.Resolving (failure)
 import Data.Morpheus.Internal.Utils
   ( empty,
+    failure,
     singleton,
   )
 import Data.Morpheus.Server.Deriving.Schema.Enum (defineEnumUnit)
@@ -124,9 +124,8 @@ withObject x _ = failureOnlyObject x
 
 failureOnlyObject :: forall (c :: TypeCategory) a b. (GQLType a, CategoryValue c) => KindedType c a -> SchemaT c b
 failureOnlyObject proxy =
-  failure
-    [ msgValidation (gqlTypeName $ __typeData proxy) <> " should have only one nonempty constructor"
-    ]
+  failure $
+    msgValidation (gqlTypeName $ __typeData proxy) <> " should have only one nonempty constructor"
 
 mkObjectTypeContent :: KindedType kind a -> FieldsDefinition kind CONST -> TypeContent TRUE kind CONST
 mkObjectTypeContent InputType = DataInputObject

@@ -32,8 +32,9 @@ import Data.Morpheus.Internal.Ext
   ( Eventless,
   )
 import Data.Morpheus.Internal.Utils
-  ( Failure (..),
+  ( Failure,
     empty,
+    failure,
     fromElems,
   )
 import qualified Data.Morpheus.Types.Internal.AST as AST
@@ -55,7 +56,6 @@ import Data.Morpheus.Types.Internal.AST
     TypeWrapper (..),
     VALID,
     ValidationError,
-    ValidationErrors,
     buildSchema,
     createScalarType,
     mkEnumContent,
@@ -66,6 +66,7 @@ import Data.Morpheus.Types.Internal.AST
     mkUnionContent,
     msgValidation,
     toAny,
+    toGQLError,
   )
 import Relude hiding
   ( ByteString,
@@ -77,7 +78,7 @@ import Relude hiding
 import Prelude (show)
 
 decoderError :: ValidationError -> Eventless a
-decoderError x = failure [x]
+decoderError = failure . toGQLError
 
 decodeIntrospection :: ByteString -> Eventless (AST.Schema VALID)
 decodeIntrospection jsonDoc = case jsonSchema of
@@ -91,18 +92,18 @@ decodeIntrospection jsonDoc = case jsonSchema of
                   schema@Schema {types}
               }
       } -> do
-      schemaDef <- mkSchemaDef schema
+      schemaDef <- first toGQLError (mkSchemaDef schema)
       gqlTypes <- concat <$> traverse parse types
-      buildSchema (Just schemaDef, gqlTypes, empty) >>= validate
+      first toGQLError (buildSchema (Just schemaDef, gqlTypes, empty)) >>= validate
   Right res -> decoderError (msgValidation $ show res)
   where
     validate :: AST.Schema CONST -> Eventless (AST.Schema VALID)
-    validate = validateSchema False defaultConfig
+    validate = first toGQLError . validateSchema False defaultConfig
     jsonSchema :: Either String (JSONResponse Introspection)
     jsonSchema = eitherDecode jsonDoc
 
 mkSchemaDef ::
-  (Monad m, Failure ValidationErrors m) =>
+  (Monad m, Failure ValidationError m) =>
   Schema ->
   m SchemaDefinition
 mkSchemaDef
@@ -135,19 +136,19 @@ instance ParseJSONSchema Type [TypeDefinition ANY CONST] where
   parse Type {name = Just typeName, kind = INPUT_OBJECT, inputFields = Just iFields} =
     do
       (fields :: [FieldDefinition IN CONST]) <- traverse parse iFields
-      fs <- fromElems fields
+      fs <- first toGQLError $ fromElems fields
       pure [mkType typeName $ DataInputObject fs]
   parse Type {name = Just typeName, kind = OBJECT, fields = Just oFields} =
     do
       (fields :: [FieldDefinition OUT CONST]) <- traverse parse oFields
-      fs <- fromElems fields
+      fs <- first toGQLError $ fromElems fields
       pure [mkType typeName $ DataObject [] fs]
   parse _ = pure []
 
 instance ParseJSONSchema Field (FieldDefinition OUT CONST) where
   parse Field {fieldName, fieldArgs, fieldType} = do
     TypeRef typename wrappers <- fieldTypeFromJSON fieldType
-    args <- traverse genArg fieldArgs >>= fromElems
+    args <- traverse genArg fieldArgs >>= first toGQLError . fromElems
     pure $ mkObjectField args fieldName wrappers typename
     where
       genArg InputValue {inputName = argName, inputType = argType} =

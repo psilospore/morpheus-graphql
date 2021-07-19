@@ -12,7 +12,7 @@ where
 import Data.Mergeable
 import Data.Morpheus.Error.Variable (uninitializedVariable)
 import Data.Morpheus.Internal.Utils
-  ( Failure (..),
+  ( failure,
     selectOr,
   )
 import Data.Morpheus.Types.Internal.AST

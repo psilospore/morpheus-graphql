@@ -23,6 +23,7 @@ import Data.Morpheus.Ext.Result
 import Data.Morpheus.Parsing.Document.TypeSystem
   ( parseSchema,
   )
+import Data.Morpheus.Types.Internal.AST (toGQLError)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote
 import Relude hiding (ByteString)
