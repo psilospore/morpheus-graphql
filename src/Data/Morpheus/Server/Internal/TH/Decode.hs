@@ -24,7 +24,6 @@ import Data.Morpheus.Types.GQLScalar
   )
 import Data.Morpheus.Types.Internal.AST
   ( FieldName,
-    InternalError,
     Message,
     ObjectEntry (..),
     ScalarValue,
@@ -33,21 +32,16 @@ import Data.Morpheus.Types.Internal.AST
     VALID,
     ValidObject,
     ValidValue,
+    ValidationError,
     Value (..),
     getInputUnionValue,
+    internal,
     msgInternal,
   )
 import Relude
-  ( (.),
-    Applicative (pure),
-    Either (..),
-    Monad ((>>=)),
-    Semigroup ((<>)),
-    either,
-  )
 
 withInputObject ::
-  Failure InternalError m =>
+  Failure ValidationError m =>
   (ValidObject -> m a) ->
   ValidValue ->
   m a
@@ -55,12 +49,12 @@ withInputObject f (Object object) = f object
 withInputObject _ isType = failure (typeMismatch "InputObject" isType)
 
 -- | Useful for more restrictive instances of lists (non empty, size indexed etc)
-withEnum :: Failure InternalError m => (TypeName -> m a) -> Value VALID -> m a
+withEnum :: Failure ValidationError m => (TypeName -> m a) -> Value VALID -> m a
 withEnum decode (Enum value) = decode value
 withEnum _ isType = failure (typeMismatch "Enum" isType)
 
 withInputUnion ::
-  (Failure InternalError m, Monad m) =>
+  (Failure ValidationError m, Monad m) =>
   (TypeName -> ValidObject -> ValidObject -> m a) ->
   ValidObject ->
   m a
@@ -71,7 +65,7 @@ withInputUnion decoder unions =
     onFail = failure . msgInternal
 
 withScalar ::
-  (Applicative m, Failure InternalError m) =>
+  (Applicative m, Failure ValidationError m) =>
   TypeName ->
   (ScalarValue -> Either Token a) ->
   Value VALID ->
@@ -88,11 +82,12 @@ withScalar typename decodeScalar value = case toScalar value >>= decodeScalar of
 decodeFieldWith :: (Value VALID -> m a) -> FieldName -> ValidObject -> m a
 decodeFieldWith decoder = selectOr (decoder Null) (decoder . entryValue)
 
-handleEither :: Failure InternalError m => Either Message a -> m a
-handleEither = either (failure . msgInternal) pure
+handleEither :: Failure ValidationError m => Either ValidationError a -> m a
+handleEither = either failure pure
 
 -- if value is already validated but value has different type
-typeMismatch :: InternalError -> Value s -> InternalError
+typeMismatch :: ValidationError -> Value s -> ValidationError
 typeMismatch text jsType =
-  "Type mismatch! expected:" <> text <> ", got: "
-    <> msgInternal jsType
+  internal $
+    "Type mismatch! expected:" <> text <> ", got: "
+      <> msgInternal jsType

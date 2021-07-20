@@ -15,7 +15,7 @@ module Data.Mergeable
     MergeMap,
     toNonEmpty,
     OrdMap,
-    throwNameCollisionErrors,
+    throwMany,
   )
 where
 

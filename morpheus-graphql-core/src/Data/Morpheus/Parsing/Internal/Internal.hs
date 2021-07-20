@@ -10,7 +10,6 @@ module Data.Morpheus.Parsing.Internal.Internal
 where
 
 import Data.ByteString.Lazy (ByteString)
-import qualified Data.List.NonEmpty as NonEmpty
 import Data.Morpheus.Ext.Result
   ( Result (..),
     ValidationResult,
@@ -57,19 +56,16 @@ type ErrorBundle = ParseErrorBundle ByteString MyError
 
 processParser :: Parser a -> ByteString -> ValidationResult a
 processParser parser txt = case runParserT parser [] txt of
-  Success {result} -> case result of
-    Right root -> pure root
-    Left parseError -> Failure (parseErrorToGQLError <$> bundleToErrors parseError)
+  Success {result} ->
+    either
+      (Failure . fmap parseErrorToGQLError . bundleToErrors)
+      pure
+      result
   Failure {errors} -> Failure errors
 
 parseErrorToGQLError :: (ParseError ByteString MyError, SourcePos) -> ValidationError
 parseErrorToGQLError (err, position) = msgValidation (parseErrorPretty err) `at` toLocation position
 
-bundleToErrors ::
-  ErrorBundle -> [(ParseError ByteString MyError, SourcePos)]
+bundleToErrors :: ErrorBundle -> NonEmpty (ParseError ByteString MyError, SourcePos)
 bundleToErrors ParseErrorBundle {bundleErrors, bundlePosState} =
-  NonEmpty.toList $ fst $
-    attachSourcePos
-      errorOffset
-      bundleErrors
-      bundlePosState
+  fst $ attachSourcePos errorOffset bundleErrors bundlePosState

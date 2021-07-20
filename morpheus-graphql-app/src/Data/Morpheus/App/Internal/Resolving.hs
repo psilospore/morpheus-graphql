@@ -6,7 +6,7 @@ module Data.Morpheus.App.Internal.Resolving
     runRootResolverValue,
     lift,
     Eventless,
-    Failure (..),
+    Failure,
     ResponseEvent (..),
     ResponseStream,
     cleanEvents,

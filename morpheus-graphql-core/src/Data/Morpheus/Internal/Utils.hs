@@ -35,7 +35,7 @@ module Data.Morpheus.Internal.Utils
     unsafeFromList,
     insert,
     fromElems,
-    failureMany,
+    throwMany,
   )
 where
 
@@ -51,6 +51,7 @@ import Data.Mergeable
     ResolutionT,
     fromListT,
     mergeConcat,
+    throwMany,
   )
 import Data.Mergeable.IsMap (FromList (..), member, selectBy, selectOr, unsafeFromList)
 import qualified Data.Mergeable.IsMap as M
@@ -79,13 +80,13 @@ import Relude hiding
     fromList,
   )
 
+{-# DEPRECATED Failure "use MonadError" #-}
+
 type Failure = MonadError
 
+{-# DEPRECATED failure "use throwError" #-}
 failure :: MonadError e m => e -> m a
 failure = throwError
-
-failureMany :: MonadError e m => NonEmpty e -> m a
-failureMany (x :| xs) = throwError x <* traverse throwError xs
 
 (<:>) :: (Merge (HistoryT m) a, Monad m) => a -> a -> m a
 x <:> y = startHistory (merge x y)
@@ -140,7 +141,6 @@ traverseCollection f a = fromElems =<< traverse f (toList a)
 
 fromElems ::
   ( Monad m,
-    Failure ValidationError m,
     KeyOf k a,
     FromList m map k a
   ) =>
@@ -149,10 +149,9 @@ fromElems ::
 fromElems = fromList . map toPair
 
 insert ::
-  ( NameCollision a,
+  ( NameCollision e a,
     KeyOf k a,
-    Monad m,
-    Failure ValidationError m
+    Failure e m
   ) =>
   a ->
   SafeHashMap k a ->

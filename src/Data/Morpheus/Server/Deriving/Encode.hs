@@ -71,12 +71,12 @@ import Data.Morpheus.Types.GQLScalar
 import Data.Morpheus.Types.GQLWrapper (EncodeWrapper (..))
 import Data.Morpheus.Types.Internal.AST
   ( IN,
-    InternalError,
     MUTATION,
     OperationType,
     QUERY,
     SUBSCRIPTION,
     TypeRef (..),
+    internal,
   )
 import GHC.Generics
   ( Generic (..),
@@ -209,7 +209,7 @@ objectResolvers value = constraintObject (exploreResolvers value)
     constraintObject obj@ResObject {} =
       pure obj
     constraintObject _ =
-      failure ("resolver must be an object" :: InternalError)
+      failure (internal "resolver must be an object")
 
 type EncodeConstraint (m :: * -> *) a =
   ( GQLType a,

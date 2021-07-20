@@ -40,7 +40,6 @@ import Data.Morpheus.Types.Internal.AST
   ( ANY,
     Directives,
     FieldName,
-    InternalError,
     RAW,
     Ref (..),
     Schema (..),
@@ -51,6 +50,7 @@ import Data.Morpheus.Types.Internal.AST
     VALID,
     ValidationError,
     VariableDefinitions,
+    internal,
     isNotSystemTypeName,
     lookupDeprecated,
     lookupDeprecatedReason,
@@ -84,8 +84,8 @@ newtype UpdateT m a = UpdateT {updateTState :: a -> m a}
 resolveUpdates :: Monad m => a -> [UpdateT m a] -> m a
 resolveUpdates a = foldlM (&) a . fmap updateTState
 
-compileError :: InternalError -> InternalError
-compileError x = "Unhandled Compile Time Error: \"" <> x <> "\" ;"
+compileError :: ValidationError -> ValidationError
+compileError x = internal $ "Unhandled Compile Time Error: \"" <> x <> "\" ;"
 
 getType :: TypeName -> Converter (TypeDefinition ANY VALID)
 getType typename =

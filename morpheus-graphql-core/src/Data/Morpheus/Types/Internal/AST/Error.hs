@@ -25,6 +25,7 @@ module Data.Morpheus.Types.Internal.AST.Error
     internal,
     isInternal,
     Errors,
+    Msg (..),
   )
 where
 
@@ -34,15 +35,18 @@ import Data.Aeson
     ToJSON (..),
     Value,
     defaultOptions,
+    encode,
     genericToJSON,
   )
+import Data.ByteString.Lazy (ByteString)
 import Data.Morpheus.Types.Internal.AST.Base
   ( Message (..),
-    Msg (..),
     Position (..),
   )
 import qualified Data.Text as T
-import Relude
+import qualified Data.Text.Lazy as LT
+import Data.Text.Lazy.Encoding (decodeUtf8)
+import Relude hiding (ByteString, decodeUtf8)
 
 readErrorMessage :: Error -> Message
 readErrorMessage = errorMessage
@@ -55,7 +59,7 @@ data Error = Error
   deriving (Show)
 
 instance IsString Error where
-  fromString = Error [] False . msg
+  fromString = Error [] False . Message . T.pack
 
 instance Semigroup Error where
   Error m1 p1 x1 <> Error m2 p2 x2 = Error (m1 <> m2) (p1 || p2) (x1 <> x2)
@@ -71,13 +75,13 @@ atPositions :: Foldable t => Error -> t Position -> Error
 atPositions (Error ps x m) pos = Error (ps <> toList pos) x m
 {-# INLINE atPositions #-}
 
-{-# DEPRECATED ValidationError "use Error" #-}
+-- {-# DEPRECATED ValidationError "use Error" #-}
 
 type ValidationError = Error
 
 {-# DEPRECATED ValidationErrors "use Errors" #-}
 
-type ValidationErrors = [ValidationError]
+type ValidationErrors = NonEmpty ValidationError
 
 type Errors = [Error]
 
@@ -86,11 +90,14 @@ toGQLError (Error p x m) = GQLError (if x then "Internal Error! " <> m else m) p
 {-# INLINE toGQLError #-}
 
 msgValidation :: (Msg a) => a -> ValidationError
-msgValidation = Error [] False . msg
+msgValidation = msg
 {-# INLINE msgValidation #-}
 
 manyMsg :: (Foldable t, Msg a) => t a -> Error
-manyMsg = Error [] False . Message . T.intercalate ", " . fmap (readMessage . msg) . toList
+manyMsg =
+  Error [] False . Message . T.intercalate ", "
+    . fmap (readMessage . errorMessage . msg)
+    . toList
 
 mapError :: (Message -> Message) -> ValidationError -> GQLError
 mapError f (Error locations _ text) =
@@ -100,14 +107,13 @@ mapError f (Error locations _ text) =
       extensions = Nothing
     }
 
+{-# DEPRECATED InternalError "use Errors" #-}
+
 type InternalError = Error
 
 msgInternal :: (Msg a) => a -> InternalError
-msgInternal = Error [] True . msg
+msgInternal = msg
 {-# INLINE msgInternal #-}
-
-instance Msg Error where
-  msg = errorMessage
 
 data GQLError = GQLError
   { message :: Message,
@@ -124,4 +130,25 @@ data GQLError = GQLError
 instance ToJSON GQLError where
   toJSON = genericToJSON (defaultOptions {omitNothingFields = True})
 
-type GQLErrors = [GQLError]
+type GQLErrors = NonEmpty GQLError
+
+class Msg a where
+  msg :: a -> Error
+
+instance Msg Error where
+  msg = id
+
+instance Msg Message where
+  msg = Error [] False
+
+instance Msg String where
+  msg = fromString
+
+instance Msg ByteString where
+  msg = msg . Message . LT.toStrict . decodeUtf8
+
+instance Msg Text where
+  msg = msg . Message
+
+instance Msg Value where
+  msg = msg . encode

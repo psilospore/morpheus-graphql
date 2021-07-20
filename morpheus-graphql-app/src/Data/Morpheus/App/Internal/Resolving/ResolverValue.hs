@@ -48,7 +48,6 @@ import Data.Morpheus.Internal.Utils
   )
 import Data.Morpheus.Types.Internal.AST
   ( FieldName,
-    InternalError,
     ObjectEntry (..),
     ScalarValue (..),
     Selection (..),
@@ -60,9 +59,11 @@ import Data.Morpheus.Types.Internal.AST
     VALID,
     ValidValue,
     ValidationError,
+    ValidationError,
     Value (..),
     Value (..),
     decodeScientific,
+    internal,
     msgInternal,
     packName,
     unitFieldName,
@@ -87,8 +88,8 @@ instance Show (ResolverValue m) where
 instance
   ( Monad f,
     Monad m,
-    Failure InternalError f,
-    Failure InternalError m
+    Failure ValidationError f,
+    Failure ValidationError m
   ) =>
   Merge f (ResolverValue m)
   where
@@ -96,7 +97,7 @@ instance
   merge ResScalar {} x@ResScalar {} = pure x
   merge ResEnum {} x@ResEnum {} = pure x
   merge (ResObject x) (ResObject y) = ResObject <$> merge x y
-  merge _ _ = failure ("can't merge: incompatible resolvers" :: InternalError)
+  merge _ _ = failure (internal "can't merge: incompatible resolvers")
 
 type ResolverEntry m = (FieldName, m (ResolverValue m))
 
@@ -111,7 +112,7 @@ instance Show (ResolverObject m) where
 instance
   ( Monad m,
     Applicative f,
-    Failure InternalError m
+    Failure ValidationError m
   ) =>
   Merge f (ResolverObject m)
   where
@@ -130,7 +131,7 @@ mergeResolver a b = do
 lookupRes ::
   ( Monad m,
     MonadReader ResolverContext m,
-    Failure InternalError m
+    Failure ValidationError m
   ) =>
   Selection VALID ->
   ResolverObject m ->
@@ -198,7 +199,7 @@ __encode obj sel@Selection {selectionContent} = encodeNode obj selectionContent
     encodeNode (ResEnum enum) SelectionField = pure $ Scalar $ String $ unpackName enum
     encodeNode (ResEnum name) unionSel@UnionSelection {} =
       encodeNode (mkUnion name mkEnumNull) unionSel
-    encodeNode ResEnum {} _ = failure ("wrong selection on enum value" :: InternalError)
+    encodeNode ResEnum {} _ = failure (internal "wrong selection on enum value")
     -- UNION
     encodeNode (ResUnion typename unionRef) (UnionSelection interface selections) = do
       unionRes <- unionRef
@@ -207,12 +208,12 @@ __encode obj sel@Selection {selectionContent} = encodeNode obj selectionContent
     encodeNode (ResUnion _ unionRef) (SelectionSet selection) =
       unionRef >>= resolveObject selection
     encodeNode (ResUnion name _) SelectionField =
-      failure ("union Resolver " <> msgInternal name <> " cant resolve  SelectionField")
+      failure (internal $ "union Resolver " <> msgInternal name <> " cant resolve  SelectionField")
     -- SCALARS
     encodeNode ResNull _ = pure Null
     encodeNode (ResScalar x) SelectionField = pure $ Scalar x
     encodeNode ResScalar {} _ =
-      failure ("scalar Resolver should only receive SelectionField" :: InternalError)
+      failure (internal "scalar Resolver should only receive SelectionField")
 
 runDataResolver ::
   ( Monad m,
@@ -242,7 +243,7 @@ resolveObject ::
   forall m.
   ( Monad m,
     MonadReader ResolverContext m,
-    Failure InternalError m
+    Failure ValidationError m
   ) =>
   SelectionSet VALID ->
   ResolverValue m ->
@@ -254,7 +255,7 @@ resolveObject selectionSet (ResObject drv@ResolverObject {__typename}) =
     resolver currentSelection =
       local (\ctx -> ctx {currentSelection, currentTypeName = __typename}) $
         ObjectEntry (keyOf currentSelection) <$> lookupRes currentSelection drv
-resolveObject _ _ = failure ("expected object as resolver" :: InternalError)
+resolveObject _ _ = failure (internal "expected object as resolver")
 
 mkString :: Token -> ResolverValue m
 mkString = ResScalar . String

@@ -44,7 +44,6 @@ import Data.Morpheus.Internal.Ext
   )
 import Data.Morpheus.Types.Internal.AST
   ( GQLError (..),
-    InternalError,
     Operation,
     Schema,
     Selection (..),
@@ -93,7 +92,7 @@ newtype ResolverStateT event m a = ResolverStateT
 instance MonadTrans (ResolverStateT e) where
   lift = ResolverStateT . lift . lift
 
-instance (Monad m) => MonadError InternalError (ResolverStateT e m) where
+instance (Monad m) => MonadError ValidationError (ResolverStateT e m) where
   throwError err = do
     ctx <- asks id
     let f = if isInternal err then renderInternalResolverError ctx else resolverFailureMessage ctx
@@ -146,7 +145,7 @@ resolverFailureMessage
         <> err
         <> withInternalContext ctx `at` selectionPosition
 
-renderInternalResolverError :: ResolverContext -> InternalError -> GQLError
+renderInternalResolverError :: ResolverContext -> ValidationError -> GQLError
 renderInternalResolverError ctx@ResolverContext {currentSelection} err =
   toGQLError $
     (err <> ". " <> msgInternal (renderContext ctx))

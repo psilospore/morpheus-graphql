@@ -15,7 +15,7 @@ where
 
 import Data.ByteString.Lazy (ByteString)
 import Data.Foldable (foldr')
-import Data.Mergeable (throwNameCollisionErrors)
+import Data.Mergeable (NameCollision (nameCollision), throwMany)
 import Data.Morpheus.Ext.Result
   ( Eventless,
     ValidationResult,
@@ -348,7 +348,7 @@ withSchemaDefinition ::
   ValidationResult (Maybe SchemaDefinition, [TypeDefinition ANY s], DirectivesDefinition CONST)
 withSchemaDefinition ([], t, dirs) = (Nothing,t,) <$> fromElems dirs
 withSchemaDefinition ([x], t, dirs) = (Just x,t,) <$> fromElems dirs
-withSchemaDefinition (x : xs, _, _) = throwNameCollisionErrors (x :| xs)
+withSchemaDefinition (x : xs, _, _) = throwMany (nameCollision <$> (x :| xs))
 
 parseRawTypeDefinitions :: Parser [RawTypeDefinition]
 parseRawTypeDefinitions =

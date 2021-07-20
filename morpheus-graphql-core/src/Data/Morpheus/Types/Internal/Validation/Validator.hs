@@ -56,7 +56,7 @@ module Data.Morpheus.Types.Internal.Validation.Validator
   )
 where
 
-import Control.Monad.Except (MonadError (throwError))
+import Control.Monad.Except (MonadError (catchError, throwError))
 import Data.Morpheus.Ext.Result
   ( ValidationResult,
   )
@@ -72,7 +72,6 @@ import Data.Morpheus.Types.Internal.AST
     Fragments,
     IMPLEMENTABLE,
     IN,
-    Message,
     Position,
     RAW,
     Ref (..),
@@ -89,7 +88,6 @@ import Data.Morpheus.Types.Internal.AST
     VariableDefinitions,
     intercalate,
     kindOf,
-    msg,
     typeDefinitions,
     unpackName,
   )
@@ -446,6 +444,7 @@ instance MonadError ValidationError (Validator s ctx) where
   throwError err = do
     ctx <- Validator ask
     Validator $ lift $ throwError $ fromValidationError ctx err
+  catchError = undefined
 
 fromValidationError :: ValidatorContext s ctx -> ValidationError -> ValidationError
 fromValidationError
@@ -454,11 +453,11 @@ fromValidationError
     }
   err
     | isInternal err || debug config =
-      err <> msgValidation (renderContext context)
+      err <> renderContext context
         `atPositions` position (scope context)
     | otherwise = err
 
-renderContext :: ValidatorContext s ctx -> Message
+renderContext :: ValidatorContext s ctx -> ValidationError
 renderContext
   ValidatorContext
     { schema,
@@ -467,7 +466,7 @@ renderContext
     renderScope scope
       <> renderSection "SchemaDefinition" schema
 
-renderScope :: Scope -> Message
+renderScope :: Scope -> ValidationError
 renderScope
   Scope
     { currentTypeName,
@@ -484,7 +483,7 @@ renderScope
           <> render fieldname
       )
 
-renderSection :: RenderGQL a => Message -> a -> Message
+renderSection :: RenderGQL a => ValidationError -> a -> ValidationError
 renderSection label content =
   "\n\n" <> label <> ":\n" <> line
     <> "\n\n"

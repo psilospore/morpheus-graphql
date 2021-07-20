@@ -23,6 +23,7 @@ module Data.Morpheus.Subscriptions.Stream
   )
 where
 
+import Control.Monad.Except (throwError)
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Morpheus.App.Internal.Resolving
   ( Channel,
@@ -31,9 +32,6 @@ import Data.Morpheus.App.Internal.Resolving
     Result (..),
     ResultT (..),
     runResultT,
-  )
-import Data.Morpheus.Internal.Utils
-  ( failure,
   )
 import Data.Morpheus.Subscriptions.Apollo
   ( ApolloAction (..),
@@ -55,7 +53,6 @@ import Data.Morpheus.Types.IO
   )
 import Data.Morpheus.Types.Internal.AST
   ( GQLError,
-    GQLErrors,
     VALID,
     Value (..),
     toGQLError,
@@ -117,13 +114,15 @@ handleResponseStream ::
 handleResponseStream session (ResultT res) =
   SubOutput $ const $ unfoldR <$> res
   where
-    execute Publish {} = apolloError [toGQLError "websocket can only handle subscriptions, not mutations"]
+    execute Publish {} =
+      apolloError
+        [toGQLError "websocket can only handle subscriptions, not mutations"]
     execute (Subscribe ch subRes) = Right $ startSession ch subRes session
     --------------------------
     unfoldR Success {events} = traverse execute events
-    unfoldR Failure {errors} = apolloError errors
+    unfoldR Failure {errors} = apolloError (toList errors)
     --------------------------
-    apolloError :: GQLErrors -> Either ByteString a
+    apolloError :: [GQLError] -> Either ByteString a
     apolloError = Left . toApolloResponse (sid session) . Errors
 
 handleWSRequest ::
@@ -205,9 +204,9 @@ handleResponseHTTP
   PubContext {eventPublisher} = runResultT (handleRes res execute) >>= runResult
     where
       runResult Success {result, events} = traverse_ eventPublisher events $> Data result
-      runResult Failure {errors} = pure $ Errors errors
+      runResult Failure {errors} = pure $ Errors $ toList errors
       execute (Publish event) = pure event
-      execute Subscribe {} = failure $ toGQLError "http server can't handle subscription"
+      execute Subscribe {} = throwError $ toGQLError "http server can't handle subscription"
 
 handleRes ::
   (Monad m) =>

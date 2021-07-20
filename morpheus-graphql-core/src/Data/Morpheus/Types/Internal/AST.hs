@@ -120,7 +120,6 @@ module Data.Morpheus.Types.Internal.AST
     UnionSelection,
     SchemaDefinition (..),
     buildSchema,
-    InternalError,
     ValidationError,
     msgInternal,
     getOperationDataType,
@@ -156,6 +155,7 @@ module Data.Morpheus.Types.Internal.AST
     typeDefinitions,
     FragmentName,
     isInternal,
+    internal,
     Error,
     Errors,
   )

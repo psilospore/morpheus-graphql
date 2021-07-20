@@ -59,14 +59,16 @@ module Data.Morpheus.Types.Internal.Validation
   )
 where
 
+-- Resolution,
+
+import Control.Monad.Except (throwError)
 import Data.Morpheus.Internal.Utils
   ( IsMap,
     KeyOf (..),
-    failure,
-    failureMany,
     member,
     selectBy,
     selectOr,
+    throwMany,
   )
 import Data.Morpheus.Types.Internal.AST
   ( ANY,
@@ -84,8 +86,6 @@ import Data.Morpheus.Types.Internal.AST
     isNullable,
     msgValidation,
   )
--- Resolution,
-
 import Data.Morpheus.Types.Internal.AST.TypeSystem
 import Data.Morpheus.Types.Internal.Validation.Error
   ( KindViolation (..),
@@ -115,7 +115,7 @@ failOnUnused :: Unused ctx b => [b] -> Validator s ctx ()
 failOnUnused [] = pure ()
 failOnUnused (x : xs) = do
   ctx <- validatorCTX <$> Validator ask
-  failureMany $ unused ctx <$> (x :| xs)
+  throwMany $ unused ctx <$> (x :| xs)
 
 checkUnused ::
   ( KeyOf k b,
@@ -138,8 +138,8 @@ constraint IMPLEMENTABLE _ TypeDefinition {typeContent = DataObject {objectField
   pure TypeDefinition {typeContent = DataObject {objectFields, ..}, ..}
 constraint IMPLEMENTABLE _ TypeDefinition {typeContent = DataInterface fields, ..} =
   pure TypeDefinition {typeContent = DataInterface fields, ..}
-constraint INPUT ctx x = maybe (failure (kindViolation INPUT ctx)) pure (fromAny x)
-constraint target ctx _ = failure (kindViolation target ctx)
+constraint INPUT ctx x = maybe (throwError (kindViolation INPUT ctx)) pure (fromAny x)
+constraint target ctx _ = throwError (kindViolation target ctx)
 
 selectRequired ::
   ( IsMap FieldName c,
@@ -193,13 +193,13 @@ selectWithDefaultValue
       failSelection = do
         ValidatorContext {scope, validatorCTX} <- Validator ask
         position <- asksScope position
-        failure $ missingRequired scope validatorCTX (Ref fieldName (fromMaybe (Position 0 0) position)) values
+        throwError $ missingRequired scope validatorCTX (Ref fieldName (fromMaybe (Position 0 0) position)) values
 
 selectType ::
   TypeName ->
   Validator s ctx (TypeDefinition ANY s)
 selectType name =
-  askSchema >>= maybe (failure err) pure . lookupDataType name
+  askSchema >>= maybe (throwError err) pure . lookupDataType name
   where
     err = "Unknown Type " <> msgValidation name <> "."
 

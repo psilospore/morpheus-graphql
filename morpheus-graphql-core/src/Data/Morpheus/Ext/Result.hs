@@ -23,6 +23,7 @@ module Data.Morpheus.Ext.Result
 where
 
 import Control.Monad.Except (MonadError (..))
+import qualified Data.List.NonEmpty as NE
 import Data.Morpheus.Types.Internal.AST.Error
   ( GQLError (..),
     ValidationError,
@@ -47,21 +48,21 @@ unpackEvents _ = []
 --
 data Result events err a
   = Success {result :: a, warnings :: [err], events :: [events]}
-  | Failure {errors :: [err]}
+  | Failure {errors :: NonEmpty err}
   deriving (Functor)
 
 instance Applicative (Result e er) where
   pure x = Success x [] []
   Success f w1 e1 <*> Success x w2 e2 = Success (f x) (w1 <> w2) (e1 <> e2)
   Failure e1 <*> Failure e2 = Failure (e1 <> e2)
-  Failure e <*> Success _ w _ = Failure (e <> w)
-  Success _ w _ <*> Failure e = Failure (e <> w)
+  Failure (e :| es) <*> Success _ w _ = Failure (e :| es <> w)
+  Success _ w _ <*> Failure (e :| es) = Failure (e :| es <> w)
 
 instance Monad (Result e er) where
   return = pure
   Success v w1 e1 >>= fm = case fm v of
     (Success x w2 e2) -> Success x (w1 <> w2) (e1 <> e2)
-    (Failure e) -> Failure (e <> w1)
+    (Failure (e :| es)) -> Failure (e :| es <> w1)
   Failure e >>= _ = Failure e
 
 instance Bifunctor (Result ev) where
@@ -75,12 +76,12 @@ instance MonadError er (Result ev er) where
 instance PushEvents events (Result events er) where
   pushEvents events = Success {result = (), warnings = [], events}
 
-resultOr :: ([err] -> a') -> (a -> a') -> Result e err a -> a'
+resultOr :: (NonEmpty err -> a') -> (a -> a') -> Result e err a -> a'
 resultOr _ f (Success x _ _) = f x
 resultOr f _ (Failure e) = f e
 
 sortErrors :: Result e GQLError a -> Result e GQLError a
-sortErrors (Failure errors) = Failure (sortOn locations errors)
+sortErrors (Failure errors) = Failure (NE.sortWith locations errors)
 sortErrors x = x
 
 -- ResultT
@@ -102,7 +103,7 @@ instance Monad m => Monad (ResultT event m) where
       Success value1 w1 e1 -> do
         result2 <- runResultT (mFunc value1)
         case result2 of
-          Failure errors -> pure $ Failure (errors <> w1)
+          Failure (e :| es) -> pure $ Failure (e :| es <> w1)
           Success v2 w2 e2 -> pure $ Success v2 (w1 <> w2) (e1 <> e2)
 
 instance MonadTrans (ResultT event) where
@@ -135,5 +136,5 @@ mapEvent func (ResultT ma) = ResultT $ mapEv <$> ma
       Success {result, warnings, events = fmap func events}
     mapEv (Failure err) = Failure err
 
-toEither :: Result e err b -> Either [err] b
+toEither :: Result e err b -> Either (NonEmpty err) b
 toEither = resultOr Left Right

@@ -66,7 +66,6 @@ import Data.Morpheus.Types.Internal.AST
   ( Argument (..),
     Arguments,
     IN,
-    InternalError,
     LEAF,
     Object,
     ObjectEntry (..),
@@ -74,7 +73,9 @@ import Data.Morpheus.Types.Internal.AST
     VALID,
     ValidObject,
     ValidValue,
+    ValidationError,
     Value (..),
+    internal,
     msgInternal,
   )
 import Data.Morpheus.Utils.Kinded
@@ -138,7 +139,7 @@ decodeType = fmap to . (`runReaderT` context) . decodeRep
 
 decideUnion ::
   ( Functor m,
-    Failure InternalError m
+    Failure ValidationError m
   ) =>
   ([TypeName], value -> m (f1 a)) ->
   ([TypeName], value -> m (f2 a)) ->
@@ -151,8 +152,9 @@ decideUnion (left, f1) (right, f2) name value
   | name `elem` right =
     R1 <$> f2 value
   | otherwise =
-    failure $
-      "Constructor \""
+    failure
+      $ internal
+      $ "Constructor \""
         <> msgInternal name
         <> "\" could not find in Union"
 
@@ -239,7 +241,7 @@ instance (DecodeRep a, DecodeRep b) => DecodeRep (a :+: b) where
       (tagName right, decodeRep)
       name
       (Enum name)
-  decodeRep _ = failure ("lists and scalars are not allowed in Union" :: InternalError)
+  decodeRep _ = failure (internal "lists and scalars are not allowed in Union")
 
 instance (Constructor c, DecodeFields a) => DecodeRep (M1 C c a) where
   decodeRep = fmap M1 . decodeFields

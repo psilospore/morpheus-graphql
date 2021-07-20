@@ -31,10 +31,8 @@ module Data.Morpheus.Types.Internal.Validation.SchemaValidator
   )
 where
 
+import Control.Monad.Except (throwError)
 import Data.Morpheus.Ext.Result (ValidationResult)
-import Data.Morpheus.Internal.Utils
-  ( failure,
-  )
 import Data.Morpheus.Types.Internal.AST
   ( ANY,
     CONST,
@@ -146,4 +144,4 @@ constraintInterface
       typeContent = DataInterface fields
     } = pure (typeName, fields)
 constraintInterface TypeDefinition {typeName} =
-  failure $ "type " <> msgValidation typeName <> " must be an interface"
+  throwError $ "type " <> msgValidation typeName <> " must be an interface"

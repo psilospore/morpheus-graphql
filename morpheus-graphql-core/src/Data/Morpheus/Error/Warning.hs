@@ -12,13 +12,18 @@ where
 
 import Data.Aeson (encode)
 import Data.ByteString.Lazy.Char8 (unpack)
-import Data.Morpheus.Error.Utils (errorMessage)
 import Data.Morpheus.Types.Internal.AST.Base
   ( Description,
     Ref (..),
-    msg,
   )
-import Data.Morpheus.Types.Internal.AST.Error (GQLErrors, ValidationError, at, msgValidation)
+import Data.Morpheus.Types.Internal.AST.Error
+  ( GQLError,
+    GQLErrors,
+    ValidationError,
+    at,
+    msg,
+    msgValidation,
+  )
 import Data.Morpheus.Types.Internal.AST.Name
   ( FieldName,
   )
@@ -28,15 +33,15 @@ import Relude
 renderGQLErrors :: GQLErrors -> String
 renderGQLErrors = unpack . encode
 
-deprecatedEnum :: FieldName -> Ref FieldName -> Maybe Description -> GQLErrors
+-- TODO: implement warnings, is nit used
+deprecatedEnum :: FieldName -> Ref FieldName -> Maybe Description -> ValidationError
 deprecatedEnum typeName Ref {refPosition, refName} reason =
-  errorMessage refPosition $
-    "the enum value "
-      <> msg typeName
-      <> "."
-      <> msg refName
-      <> " is deprecated."
-      <> msg (maybe "" (" " <>) reason)
+  "the enum value "
+    <> msg typeName
+    <> "."
+    <> msg refName
+    <> " is deprecated."
+    <> msg (maybe "" (" " <>) reason) `at` refPosition
 
 deprecatedField :: FieldName -> Ref FieldName -> Maybe Description -> ValidationError
 deprecatedField typeName Ref {refPosition, refName} reason =
@@ -47,7 +52,7 @@ deprecatedField typeName Ref {refPosition, refName} reason =
     <> " is deprecated."
     <> msgValidation (maybe "" (" " <>) reason) `at` refPosition
 
-gqlWarnings :: GQLErrors -> Q ()
+gqlWarnings :: [GQLError] -> Q ()
 gqlWarnings [] = pure ()
 gqlWarnings warnings = traverse_ handleWarning warnings
   where

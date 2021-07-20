@@ -13,11 +13,10 @@ import Data.Morpheus.Types.Internal.AST.Base
   )
 import Data.Morpheus.Types.Internal.AST.Error
   ( GQLError (..),
-    GQLErrors,
   )
 import Relude hiding (ByteString)
 
-errorMessage :: Position -> Message -> GQLErrors
+errorMessage :: Position -> Message -> [GQLError]
 errorMessage position message =
   [ GQLError
       { message,
@@ -27,7 +26,7 @@ errorMessage position message =
   ]
 
 {-# DEPRECATED globalErrorMessage "use validation errors" #-}
-globalErrorMessage :: Message -> GQLErrors
+globalErrorMessage :: Message -> [GQLError]
 globalErrorMessage message =
   [ GQLError
       { message,

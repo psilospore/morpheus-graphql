@@ -25,9 +25,6 @@ import qualified Data.ByteString.Lazy.Char8 as LB
   )
 import Data.Morpheus.App.Error (badRequestError)
 import Data.Morpheus.Internal.Utils
-  ( Failure,
-    failure,
-  )
 import Data.Morpheus.Types.IO
   ( GQLRequest (..),
     GQLResponse (..),
